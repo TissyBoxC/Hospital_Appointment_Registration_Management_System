@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="1187ee2c-e3bd-4eae-95f4-1c6b47293210" name="更改" comment="" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="DatabaseLocalColorSettings">
+    <colors>
+      <entry key="37fdbab9-9a32-49db-a9cd-bc71d52b7c65" value="" />
+    </colors>
+  </component>
+  <component name="ExternalProjectsData">
+    <projectState path="$PROJECT_DIR$">
+      <ProjectState />
+    </projectState>
+  </component>
+  <component name="ExternalProjectsManager">
+    <system id="GRADLE">
+      <state>
+        <task path="$PROJECT_DIR$">
+          <activation />
+        </task>
+        <projects_view>
+          <tree_state>
+            <expand>
+              <path>
+                <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
+                <item name="HARMSYS" type="f1a62948:ProjectNode" />
+              </path>
+              <path>
+                <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
+                <item name="HARMSYS" type="f1a62948:ProjectNode" />
+                <item name="Tasks" type="e4a08cd1:TasksNode" />
+              </path>
+            </expand>
+            <select />
+          </tree_state>
+        </projects_view>
+      </state>
+    </system>
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Exception" />
+        <option value="Class" />
+      </list>
+    </option>
+  </component>
+  <component name="GradleLocalSettings">
+    <option name="myGradleUserHome" value="$PROJECT_DIR$/../../gradle-9.4.1/gradle_reop" />
+  </component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/src/main/java/io/github/tissyboxc/harmsys/utils/SqlChecker.java" root0="SKIP_INSPECTION" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 4,
+  &quot;fromUser&quot;: false
+}</component>
+  <component name="ProjectId" id="3IlbJI7qfpqGyjDeC1BYnOdZkAJ" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "CidrDebugProfileConversion": "true",
+    "Gradle.Hospital Appointment Registration Management System.executor": "Run",
+    "Gradle.构建 Hospital Appointment Registration Management System.executor": "Run",
+    "Gradle.构建 Hospital_Appointment_Registration_Management_System.executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RequestMappingsPanelOrder0": "0",
+    "RequestMappingsPanelOrder1": "1",
+    "RequestMappingsPanelWidth0": "75",
+    "RequestMappingsPanelWidth1": "75",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "Spring Boot.HospitalAppointmentRegistrationManagementSystemApplication.executor": "Run",
+    "cidr.known.project.marker": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "ignore.virus.scanning.warn.message": "true",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "D:/service/AAAA-sqlwork/Hospital_Appointment_Registration_Management_System",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.jshint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.jshint": "",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "project.structure.last.edited": "工件",
+    "project.structure.proportion": "0.15",
+    "project.structure.side.proportion": "0.2",
+    "settings.editor.selected.configurable": "preferences.rainbow.brackets.color"
+  },
+  "keyToStringList": {
+    "DatabaseDriversLRU": [
+      "mysql_aurora"
+    ]
+  }
+}]]></component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="D:\service\sqlwork\Hospital Appointment Registration Management System\src\main\resources" />
+    </key>
+  </component>
+  <component name="RunManager">
+    <configuration default="true" type="JetRunConfigurationType">
+      <module name="Hospital Appointment Registration Management System" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration default="true" type="KotlinStandaloneScriptRunConfigurationType">
+      <module name="Hospital Appointment Registration Management System" />
+      <option name="filePath" />
+      <method v="2" />
+    </configuration>
+    <configuration name="HospitalAppointmentRegistrationManagementSystemApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+      <option name="FRAME_DEACTIVATION_UPDATE_POLICY" value="UpdateClassesAndResources" />
+      <module name="HARMSYS.main" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="io.github.tissyboxc.harmsys.HospitalAppointmentRegistrationManagementSystemApplication" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-30f59d01ecdd-a203e0a19954-intellij.indexing.shared.core-IU-262.10315.125" />
+        <option value="bundled-js-predefined-d6986cc7102b-4abd2a77f808-JavaScript-IU-262.10315.125" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="默认任务">
+      <changelist id="1187ee2c-e3bd-4eae-95f4-1c6b47293210" name="更改" comment="" />
+      <created>1788342028718</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1788342028718</updated>
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="XSLT-Support.FileAssociations.UIState">
+    <expand />
+    <select />
+  </component>
+</project>
