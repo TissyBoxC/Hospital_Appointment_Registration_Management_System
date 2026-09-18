@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-  <component name="DataSourcePerFileMappings">
-    <file url="file://$PROJECT_DIR$/src/main/java/io/github/tissyboxc/harmsys/appointment/AdminAppointmentOperationsController.java" value="37fdbab9-9a32-49db-a9cd-bc71d52b7c65" />
-    <file url="file://$PROJECT_DIR$/src/main/java/io/github/tissyboxc/harmsys/utils/AnnouncementController.java" value="37fdbab9-9a32-49db-a9cd-bc71d52b7c65" />
-  </component>
-</project>
