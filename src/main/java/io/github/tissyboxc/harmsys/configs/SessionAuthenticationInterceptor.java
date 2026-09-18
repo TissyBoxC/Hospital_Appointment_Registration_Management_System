@@ -7,7 +7,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.servlet.HandlerInterceptor;
 
-/** 在受保护接口执行前恢复并校验登录会话。 */
+/**
+ * 验证用户是否一登陆并且Session是否有效
+ */
 public class SessionAuthenticationInterceptor implements HandlerInterceptor {
   private final ActiveSessionService activeSessions;
 

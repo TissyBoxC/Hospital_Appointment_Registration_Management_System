@@ -19,6 +19,10 @@ public class AnnouncementController {
     this.jdbc = jdbc;
   }
 
+  /**
+   * 获取已发布公告
+   * @return 公告信息
+   */
   @GetMapping("/api/public/announcements")
   public List<Map<String, Object>> publicList() {
     return jdbc.queryForList(
@@ -26,6 +30,10 @@ public class AnnouncementController {
             + " published_at DESC,id DESC");
   }
 
+  /**
+   * 根据公告ID返回公告信息
+   * @param id 公告ID
+   */
   @GetMapping("/api/public/announcements/{id}")
   public Map<String, Object> publicGet(@PathVariable long id) {
     Map<String, Object> m =
@@ -36,15 +44,23 @@ public class AnnouncementController {
     return m;
   }
 
+  /**
+   * 管理员查询所有公告,包含0，1，2状态
+   */
   @GetMapping("/api/admin/announcements")
   public List<Map<String, Object>> adminList(HttpServletRequest r) {
     admin(r);
     return jdbc.queryForList("SELECT * FROM system_announcement ORDER BY id DESC");
   }
 
+  /**
+   * 管理员发布公告
+   * @param b 下游请求体,包含公告信息
+   */
   @PostMapping("/api/admin/announcements")
   public Map<String, Object> create(@RequestBody Map<String, Object> b, HttpServletRequest r) {
     AuthenticatedUser u = admin(r);
+    //解析公告信息
     String title = required(b, "title"), content = required(b, "content");
     jdbc.update(
         "INSERT INTO system_announcement(title,content,status,publisher_user_id) VALUES(?,?,0,?)",
@@ -59,6 +75,11 @@ public class AnnouncementController {
     return one("SELECT * FROM system_announcement WHERE id=?", id);
   }
 
+  /**
+   * 管理员修改公告信息
+   * @param id 公告ID
+   * @param b 请求体
+   */
   @PutMapping("/api/admin/announcements/{id}")
   public Map<String, Object> update(
       @PathVariable long id, @RequestBody Map<String, Object> b, HttpServletRequest r) {
@@ -72,6 +93,10 @@ public class AnnouncementController {
     return one("SELECT * FROM system_announcement WHERE id=?", id);
   }
 
+  /**
+   * 管理员发布公告
+   * @param id 公告ID
+   */
   @PostMapping("/api/admin/announcements/{id}/publish")
   public Map<String, Object> publish(@PathVariable long id, HttpServletRequest r) {
     admin(r);
@@ -83,6 +108,10 @@ public class AnnouncementController {
     return one("SELECT * FROM system_announcement WHERE id=?", id);
   }
 
+  /**
+   * 管理员撤回公告
+   * @param id 公告ID
+   */
   @PostMapping("/api/admin/announcements/{id}/retract")
   public Map<String, Object> retract(@PathVariable long id, HttpServletRequest r) {
     admin(r);
@@ -91,6 +120,9 @@ public class AnnouncementController {
     return one("SELECT * FROM system_announcement WHERE id=?", id);
   }
 
+  /**
+   * 验证管理员身份
+   */
   private AuthenticatedUser admin(HttpServletRequest r) {
     AuthenticatedUser u = SessionAuth.require(r);
     if (u.role_codes().stream().noneMatch(x -> x.equalsIgnoreCase("ADMIN")))
@@ -98,6 +130,12 @@ public class AnnouncementController {
     return u;
   }
 
+  /**
+   * 解析请求体
+   * @param b 下游请求体
+   * @param k 待解析字段
+   * @return
+   */
   private String required(Map<String, Object> b, String k) {
     Object v = b.get(k);
     if (v == null || String.valueOf(v).isBlank())

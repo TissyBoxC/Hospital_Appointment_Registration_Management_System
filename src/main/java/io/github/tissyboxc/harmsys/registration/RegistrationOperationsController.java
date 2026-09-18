@@ -22,6 +22,10 @@ public class RegistrationOperationsController {
     this.jdbc = jdbc;
   }
 
+  /**
+   * 挂号员查询患者信息
+   * @param keyword 匹配姓名,手机号,身份证
+   */
   @GetMapping("/patients")
   public List<Map<String, Object>> patients(
       @RequestParam(required = false) String keyword, HttpServletRequest request) {
@@ -38,6 +42,10 @@ public class RegistrationOperationsController {
         like);
   }
 
+  /**
+   * 根据患者ID查询患者
+   * @param id 患者ID
+   */
   @GetMapping("/patients/{id}")
   public Map<String, Object> patient(@PathVariable long id, HttpServletRequest request) {
     operator(request);
@@ -51,26 +59,37 @@ public class RegistrationOperationsController {
     return p;
   }
 
+  /**
+   * 挂号员代挂号接口
+   * @param body 挂号请求体
+   */
   @PostMapping("/appointments")
   @Transactional(rollbackFor = Exception.class)
   public Map<String, Object> create(
       @RequestBody Map<String, Object> body, HttpServletRequest request) {
+    //身份验证
     AuthenticatedUser op = operator(request);
+    //读取患者信息,排班+时间
     long patientId = number(body, "patient_id"), scheduleId = number(body, "schedule_id");
     Long slotId = body.get("slot_id") == null ? null : number(body, "slot_id");
+    //验证患者是否存在
     Map<String, Object> p = one("SELECT id FROM patient WHERE id=? AND deleted=0", patientId);
+    //锁定并读取排班信息
     Map<String, Object> s = one("SELECT * FROM doctor_schedule WHERE id=? FOR UPDATE", scheduleId);
     if (p == null) throw new UserRegistrationException(404, "患者不存在");
     if (s == null || ((Number) s.get("status")).intValue() != 1)
       throw new UserRegistrationException(409, "排班不可预约");
+    //查看号源是否有空
     if (((Number) s.get("booked_count")).intValue() >= ((Number) s.get("total_count")).intValue())
       throw new UserRegistrationException(409, "号源已满");
+    //占用号源,时间段
     if (slotId != null
         && jdbc.update(
                 "UPDATE schedule_slot SET status=1 WHERE id=? AND schedule_id=? AND status=0",
                 slotId,
                 scheduleId)
             != 1) throw new UserRegistrationException(409, "时间段不可用");
+    //生成排队号
     int queue =
         Optional.ofNullable(
                 jdbc.queryForObject(
@@ -79,6 +98,7 @@ public class RegistrationOperationsController {
                     Integer.class,
                     scheduleId))
             .orElse(1);
+    //生成预约单号
     String no =
         "A"
             + System.currentTimeMillis()
@@ -105,6 +125,7 @@ public class RegistrationOperationsController {
     long id =
         jdbc.queryForObject("SELECT id FROM appointment WHERE appointment_no=?", Long.class, no);
     jdbc.update("UPDATE doctor_schedule SET booked_count=booked_count+1 WHERE id=?", scheduleId);
+    //生成支付单号
     String payNo =
         "PAY"
             + System.currentTimeMillis()
@@ -130,13 +151,19 @@ public class RegistrationOperationsController {
         id);
   }
 
+  /**
+   * 挂号员退款处理
+   * @param id 预约单号
+   */
   @PostMapping("/appointments/{id}/refund")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   @Transactional(rollbackFor = Exception.class)
   public void refund(@PathVariable long id, HttpServletRequest request) {
     AuthenticatedUser op = operator(request);
+    //验证预约存在
     Map<String, Object> a = one("SELECT * FROM appointment WHERE id=? FOR UPDATE", id);
     if (a == null) throw new UserRegistrationException(404, "预约不存在");
+    //更新退款信息
     if (jdbc.update(
             "UPDATE payment_record SET status=5,refunded_at=CURRENT_TIMESTAMP WHERE"
                 + " appointment_id=? AND status=2",
@@ -145,16 +172,22 @@ public class RegistrationOperationsController {
     jdbc.update(
         "UPDATE appointment SET status=9,cancel_reason='挂号员退款' WHERE id=? AND status IN (1,2,3,4)",
         id);
+    //释放时间段
     if (a.get("slot_id") != null)
       jdbc.update(
           "UPDATE schedule_slot SET status=0 WHERE id=? AND status=1",
           ((Number) a.get("slot_id")).longValue());
+    //释放排班
     jdbc.update(
         "UPDATE doctor_schedule SET booked_count=GREATEST(booked_count-1,0) WHERE id=?",
         ((Number) a.get("schedule_id")).longValue());
     log(op.user_id(), "REGISTRATION_REFUND_APPOINTMENT", id, "挂号员退号并退款", request);
   }
 
+  /**
+   * 挂号员叫号
+   * @param id 排队号
+   */
   @PostMapping("/queue/{id}/call-next")
   public Map<String, Object> callNext(@PathVariable long id, HttpServletRequest request) {
     AuthenticatedUser op = operator(request);
@@ -169,6 +202,10 @@ public class RegistrationOperationsController {
     return one("SELECT * FROM appointment WHERE id=?", id);
   }
 
+  /**
+   * 挂号员标记过号
+   * @param id 排队号
+   */
   @PostMapping("/queue/{id}/mark-no-show")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void noShow(@PathVariable long id, HttpServletRequest request) {
@@ -179,6 +216,10 @@ public class RegistrationOperationsController {
     log(op.user_id(), "REGISTRATION_MARK_NO_SHOW", id, "标记患者过号", request);
   }
 
+  /**
+   * 挂号员标记重新排队
+   * @param id 排队号
+   */
   @PostMapping("/queue/{id}/requeue")
   public Map<String, Object> requeue(@PathVariable long id, HttpServletRequest request) {
     AuthenticatedUser op = operator(request);
@@ -188,6 +229,9 @@ public class RegistrationOperationsController {
     return one("SELECT * FROM appointment WHERE id=?", id);
   }
 
+  /**
+   * 验证挂号员身份/权限
+   */
   private AuthenticatedUser operator(HttpServletRequest r) {
     AuthenticatedUser u = SessionAuth.require(r);
     if (u.role_codes().stream()
@@ -196,6 +240,11 @@ public class RegistrationOperationsController {
     return u;
   }
 
+  /**
+   * 将JSON中的数字或字符串转换为LONG传回
+   * @param b Controller接收到的请求体
+   * @param k 需要读取的字段名
+   */
   private long number(Map<String, Object> b, String k) {
     if (b.get(k) == null) throw new UserRegistrationException(422, k + "不能为空");
     return Long.parseLong(String.valueOf(b.get(k)));

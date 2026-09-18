@@ -18,6 +18,9 @@ public class PatientHistoryController {
     this.jdbc = jdbc;
   }
 
+  /**
+   * 查看患者自己的处方列表
+   */
   @GetMapping("/prescriptions")
   public List<Map<String, Object>> prescriptions(HttpServletRequest request) {
     long p = patient(request).patient_id();
@@ -28,6 +31,9 @@ public class PatientHistoryController {
         p);
   }
 
+  /**
+   * 查看某张处方的药品明细
+   */
   @GetMapping("/prescriptions/{id}/items")
   public List<Map<String, Object>> items(@PathVariable long id, HttpServletRequest request) {
     long p = patient(request).patient_id();
@@ -42,6 +48,9 @@ public class PatientHistoryController {
         "SELECT * FROM prescription_item WHERE prescription_id=? ORDER BY id", id);
   }
 
+  /**
+   * 查看自己的诊断记录或指定某张诊断
+   */
   @GetMapping("/diagnoses")
   public List<Map<String, Object>> diagnoses(
       @RequestParam(required = false) Long visit_id, HttpServletRequest request) {
@@ -62,6 +71,9 @@ public class PatientHistoryController {
         "SELECT * FROM diagnosis_record WHERE visit_id=? ORDER BY id", visit_id);
   }
 
+  /**
+   * 验证当前登陆账户身份
+   */
   private AuthenticatedUser patient(HttpServletRequest r) {
     AuthenticatedUser u = SessionAuth.require(r);
     if (u.patient_id() == null

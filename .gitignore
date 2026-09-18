@@ -30,3 +30,9 @@ replay_pid*
 .idea/
 .learnings/
 build/
+/.idea
+/.gradle
+/.gradle
+/build
+build/tmp/compileJava/compileTransaction/stash-dir/VisitUpdateRequest.class.uniqueId89
+/build

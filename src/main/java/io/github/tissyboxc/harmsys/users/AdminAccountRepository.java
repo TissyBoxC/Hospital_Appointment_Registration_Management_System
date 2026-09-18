@@ -19,18 +19,30 @@ public class AdminAccountRepository {
     this.jdbcTemplate = jdbcTemplate;
   }
 
+    /**
+     * 用户名查重
+     */
   public boolean usernameExists(String username) {
     return count("SELECT COUNT(*) FROM sys_user WHERE username = ?", username) > 0;
   }
 
+    /**
+     * 身份证号查重
+     */
   public boolean idCardExists(String idCard) {
     return count("SELECT COUNT(*) FROM patient WHERE id_card = ?", idCard) > 0;
   }
 
+    /**
+     * 医生查重
+     */
   public boolean doctorNoExists(String doctorNo) {
     return count("SELECT COUNT(*) FROM doctor WHERE doctor_no = ?", doctorNo) > 0;
   }
 
+    /**
+     * 科室启用状态
+     */
   public boolean departmentEnabled(long departmentId) {
     return count(
             "SELECT COUNT(*) FROM department WHERE id = ? AND status = 1 AND deleted = 0",
@@ -38,6 +50,12 @@ public class AdminAccountRepository {
         > 0;
   }
 
+    /**
+     * 新建用户
+     * @param username 用户名
+     * @param passwordHash 密码
+     * @param userType 角色类型
+     */
   public long insertUser(String username, String passwordHash, int userType) {
     KeyHolder keyHolder = new GeneratedKeyHolder();
     int rows =
@@ -60,6 +78,11 @@ public class AdminAccountRepository {
     return keyHolder.getKey().longValue();
   }
 
+    /**
+     * 新建病人
+     * @param userId 用户ID
+     * @param request 创建请求体,包含信息
+     */
   public long insertPatient(long userId, AdminCreatePatientRequest request) {
     return insertProfile(
         "INSERT INTO"
@@ -78,6 +101,12 @@ public class AdminAccountRepository {
         });
   }
 
+    /**
+     * 新建医生
+     * @param userId 用户ID
+     * @param request 创建请求体,包含信息
+     * @return
+     */
   public long insertDoctor(long userId, AdminCreateDoctorRequest request) {
     return insertProfile(
         "INSERT INTO"
@@ -96,6 +125,10 @@ public class AdminAccountRepository {
         });
   }
 
+    /**
+     * 查询角色ID
+     * @param roleCode 角色代码
+     */
   public Optional<Long> findRoleId(String roleCode) {
     return jdbcTemplate
         .query(
@@ -106,19 +139,33 @@ public class AdminAccountRepository {
         .findFirst();
   }
 
+    /**
+     * 新建角色与用户关系
+     * @param userId 用户ID
+     * @param roleId 角色ID
+     */
   public void assignRole(long userId, long roleId) {
     jdbcTemplate.update("INSERT INTO sys_user_role(user_id,role_id) VALUES(?,?)", userId, roleId);
   }
 
+    /**
+     * 删除关系
+     */
   public void removeRole(long userId, long roleId) {
     jdbcTemplate.update(
         "DELETE FROM sys_user_role WHERE user_id = ? AND role_id = ?", userId, roleId);
   }
 
+    /**
+     * 用户已存在
+     */
   public boolean userExists(long userId) {
     return count("SELECT COUNT(*) FROM sys_user WHERE id = ? AND deleted = 0", userId) > 0;
   }
 
+    /**
+     * 更新用户状态
+     */
   public void updateStatus(long userId, int status) {
     if (jdbcTemplate.update(
             "UPDATE sys_user SET status = ? WHERE id = ? AND deleted = 0", status, userId)
@@ -127,6 +174,9 @@ public class AdminAccountRepository {
     }
   }
 
+    /**
+     * 重置密码
+     */
   public void resetPassword(long userId, String passwordHash) {
     if (jdbcTemplate.update(
             "UPDATE sys_user SET password_hash = ? WHERE id = ? AND deleted = 0",
@@ -137,6 +187,9 @@ public class AdminAccountRepository {
     }
   }
 
+    /**
+     * 统一日志逻辑
+     */
   public void writeLog(
       long operatorId,
       String type,
@@ -161,6 +214,9 @@ public class AdminAccountRepository {
     return value == null ? 0 : value;
   }
 
+    /**
+     * 新建资料
+     */
   private long insertProfile(String sql, StatementBinder binder) {
     KeyHolder keyHolder = new GeneratedKeyHolder();
     int rows =

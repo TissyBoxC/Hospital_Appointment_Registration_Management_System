@@ -17,6 +17,9 @@ public class AdminAccountController {
     this.service = service;
   }
 
+  /**
+   * 管理员创建患者账户
+   */
   @PostMapping("/patients")
   @ResponseStatus(HttpStatus.CREATED)
   public AdminCreateAccountResult createPatient(
@@ -24,6 +27,9 @@ public class AdminAccountController {
     return service.createPatient(request, httpRequest);
   }
 
+  /**
+   * 管理员创建医生账户
+   */
   @PostMapping("/doctors")
   @ResponseStatus(HttpStatus.CREATED)
   public AdminCreateAccountResult createDoctor(
@@ -31,6 +37,9 @@ public class AdminAccountController {
     return service.createDoctor(request, httpRequest);
   }
 
+  /**
+   * 管理员创建挂号员账户
+   */
   @PostMapping("/registrations")
   @ResponseStatus(HttpStatus.CREATED)
   public AdminCreateAccountResult createRegistration(
@@ -38,6 +47,9 @@ public class AdminAccountController {
     return service.createRegistration(request, httpRequest);
   }
 
+  /**
+   * 管理员创建药房账户
+   */
   @PostMapping({"/pharmacy", "/pharmacies"})
   @ResponseStatus(HttpStatus.CREATED)
   public AdminCreateAccountResult createPharmacy(
@@ -45,6 +57,11 @@ public class AdminAccountController {
     return service.createPharmacy(request, httpRequest);
   }
 
+  /**
+   * 管理员修改用户状态
+   * @param userId 用户ID
+   * @param request 包含状态的请求体
+   */
   @PutMapping("/users/{userId}/status")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void updateStatus(
@@ -54,6 +71,11 @@ public class AdminAccountController {
     service.updateStatus(userId, request.status(), httpRequest);
   }
 
+  /**
+   * 管理员修改用户密码
+   * @param userId 用户ID
+   * @param request 包含新密码的请求体
+   */
   @PutMapping("/users/{userId}/password")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void resetPassword(
@@ -63,6 +85,11 @@ public class AdminAccountController {
     service.resetPassword(userId, request.password(), httpRequest);
   }
 
+  /**
+   * 管理员任命科室负责人
+   * @param userId 用户ID
+   * @param request 角色启用状态
+   */
   @PutMapping("/users/{userId}/department-manager")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void setDepartmentManager(

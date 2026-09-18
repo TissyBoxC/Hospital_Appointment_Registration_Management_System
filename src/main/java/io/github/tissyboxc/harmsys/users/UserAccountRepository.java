@@ -20,6 +20,10 @@ public class UserAccountRepository {
     this.jdbcTemplate = jdbcTemplate;
   }
 
+    /**
+     * 注册时验证用户名存在
+     * @param username 用户名
+     */
   public boolean usernameExists(String username) {
     Long count =
         jdbcTemplate.queryForObject(
@@ -33,6 +37,10 @@ public class UserAccountRepository {
     return count != null && count > 0;
   }
 
+    /**
+     * 注册时验证IDC存在
+     * @param idCard 身份证号
+     */
   public boolean idCardExists(String idCard) {
     Long count =
         jdbcTemplate.queryForObject(
@@ -46,6 +54,11 @@ public class UserAccountRepository {
     return count != null && count > 0;
   }
 
+    /**
+     * 新建用户
+     * @param username 用户名
+     * @param passwordHash 密码
+     */
   public long insertUser(String username, String passwordHash) {
     String sql =
         """
@@ -77,6 +90,11 @@ public class UserAccountRepository {
     return keyHolder.getKey().longValue();
   }
 
+    /**
+     * 新建患者信息
+     * @param userId 用户ID,外键
+     * @param request 患者信息
+     */
   public long insertPatient(long userId, PatientRegisterRequest request) {
     String sql =
         """
@@ -125,6 +143,9 @@ public class UserAccountRepository {
     return keyHolder.getKey().longValue();
   }
 
+    /**
+     * 在数据库中寻找PATIENT角色
+     */
   public Optional<Long> findPatientRoleId() {
     return jdbcTemplate
         .query(
@@ -140,6 +161,11 @@ public class UserAccountRepository {
         .findFirst();
   }
 
+    /**
+     * 分配角色ID
+     * @param userId 患者用户ID
+     * @param roleId PATIENT角色ID
+     */
   public void assignRole(long userId, long roleId) {
     int rows =
         jdbcTemplate.update(
@@ -157,6 +183,9 @@ public class UserAccountRepository {
     }
   }
 
+    /**
+     * 注册日志逻辑
+     */
   public void writeRegisterLog(long userId, long patientId) {
     jdbcTemplate.update(
         """
@@ -173,6 +202,10 @@ public class UserAccountRepository {
         "患者完成账号注册");
   }
 
+    /**
+     * 根据用户名寻找用户信息
+     * @param username 用户名
+     */
   public Optional<LoginUserRecord> findLoginUser(String username) {
     String sql =
         """
@@ -221,6 +254,10 @@ public class UserAccountRepository {
         .findFirst();
   }
 
+    /**
+     * 根据用户ID匹配用户角色代码，只返回启用的角色
+     * @param userId 用户ID
+     */
   public List<String> findRoleCodes(long userId) {
     return jdbcTemplate.query(
         """
@@ -236,6 +273,10 @@ public class UserAccountRepository {
         userId);
   }
 
+    /**
+     * 更新最后登录时间
+     * @param userId 用户ID
+     */
   public void updateLastLoginTime(long userId) {
     jdbcTemplate.update(
         """
@@ -246,6 +287,9 @@ public class UserAccountRepository {
         userId);
   }
 
+    /**
+     * 将数据库NULL转换为JAVA null
+     */
   private Long getNullableLong(java.sql.ResultSet resultSet, String columnName)
       throws java.sql.SQLException {
 

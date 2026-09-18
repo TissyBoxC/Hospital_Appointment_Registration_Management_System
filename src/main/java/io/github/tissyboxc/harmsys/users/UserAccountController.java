@@ -17,6 +17,10 @@ public class UserAccountController {
     this.userAccountService = userAccountService;
   }
 
+  /**
+   * 注册接口
+   * @param request 下游请求体,包含注册信息
+   */
   @PostMapping("/register")
   @ResponseStatus(HttpStatus.CREATED)
   public RegisterResult register(@Valid @RequestBody PatientRegisterRequest request) {

@@ -20,10 +20,15 @@ public class DataConsistencyController {
     this.jdbc = jdbc;
   }
 
+  /**
+   * 查询,统计
+   * @return “scedule_booked_count_mismatch+orphan_reserved_slots+payment_status_mismatch+orphan_slots”
+   */
   @GetMapping
   public Map<String, Object> check(HttpServletRequest request) {
     admin(request);
     Map<String, Object> result = new LinkedHashMap<>();
+    //排班已预约数量不一致,检查doctor_schedule.booked_count和该排班下的有效预约数量
     result.put(
         "schedule_booked_count_mismatch",
         jdbc.queryForObject(
@@ -31,18 +36,21 @@ public class DataConsistencyController {
                 + " FROM appointment WHERE status IN (1,2,3,4) GROUP BY schedule_id) x ON"
                 + " x.schedule_id=ds.id WHERE ds.booked_count<>COALESCE(x.cnt,0)",
             Long.class));
+    //孤立占用时间段
     result.put(
         "orphan_reserved_slots",
         jdbc.queryForObject(
             "SELECT COUNT(*) FROM schedule_slot s LEFT JOIN appointment a ON a.slot_id=s.id AND"
                 + " a.status IN (1,2,3,4) WHERE s.status=1 AND a.id IS NULL",
             Long.class));
+    //支付状态与预约状态不一致,支付记录显示成功,但是预约已取消,过期,退款,停诊等
     result.put(
         "payment_status_mismatch",
         jdbc.queryForObject(
             "SELECT COUNT(*) FROM payment_record p JOIN appointment a ON a.id=p.appointment_id"
                 + " WHERE p.status=2 AND a.status IN (6,7,8,9)",
             Long.class));
+    //孤立号源时间段-(约束大部分情况不会被绕过,我不会人工导入数据,也不会迁移留下脏数据)按理说不会出现,repair也就没写
     result.put(
         "orphan_slots",
         jdbc.queryForObject(
@@ -52,20 +60,26 @@ public class DataConsistencyController {
     return result;
   }
 
+  /**
+   * 修复接口
+   */
   @PostMapping("/repair")
   @Transactional(rollbackFor = Exception.class)
   public Map<String, Object> repair(HttpServletRequest request) {
     AuthenticatedUser user = admin(request);
     int counts = 0;
+    //矫正booked_count
     counts +=
         jdbc.update(
             "UPDATE doctor_schedule ds LEFT JOIN (SELECT schedule_id,COUNT(*) cnt FROM appointment"
                 + " WHERE status IN (1,2,3,4) GROUP BY schedule_id) x ON x.schedule_id=ds.id SET"
                 + " ds.booked_count=COALESCE(x.cnt,0) WHERE ds.booked_count<>COALESCE(x.cnt,0)");
+    //释放孤立已占用时间段
     counts +=
         jdbc.update(
             "UPDATE schedule_slot s LEFT JOIN appointment a ON a.slot_id=s.id AND a.status IN"
                 + " (1,2,3,4) SET s.status=0 WHERE s.status=1 AND a.id IS NULL");
+    //修正支付状态
     counts +=
         jdbc.update(
             "UPDATE payment_record p JOIN appointment a ON a.id=p.appointment_id SET"
@@ -82,6 +96,9 @@ public class DataConsistencyController {
     return result;
   }
 
+  /**
+   * 管理员身份校验
+   */
   private AuthenticatedUser admin(HttpServletRequest r) {
     AuthenticatedUser u = SessionAuth.require(r);
     if (u.role_codes().stream().noneMatch(x -> x.equalsIgnoreCase("ADMIN")))

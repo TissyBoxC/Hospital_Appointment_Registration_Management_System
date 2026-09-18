@@ -20,6 +20,9 @@ public class PaymentQueryController {
     this.jdbc = jdbc;
   }
 
+  /**
+   * 查询支付记录
+   */
   @GetMapping("/patient/payments")
   public Map<String, Object> patientPayments(
       @RequestParam(defaultValue = "1") int page,
@@ -34,6 +37,10 @@ public class PaymentQueryController {
         page_size);
   }
 
+  /**
+   * 根据预约ID查询支付记录
+   * @param appointmentId 预约ID
+   */
   @GetMapping("/patient/appointments/{appointmentId}/payment")
   public Map<String, Object> appointmentPayment(
       @PathVariable long appointmentId, HttpServletRequest request) {
@@ -48,6 +55,10 @@ public class PaymentQueryController {
     return p;
   }
 
+  /**
+   * 管理员查询支付记录
+   * @param status 状态
+   */
   @GetMapping("/admin/payments")
   public Map<String, Object> adminPayments(
       @RequestParam(defaultValue = "1") int page,
@@ -69,6 +80,9 @@ public class PaymentQueryController {
     return result(page, page_size, total, items);
   }
 
+  /**
+   * 分页
+   */
   private Map<String, Object> page(String sql, String countSql, long patient, int page, int size) {
     int s = Math.min(Math.max(size, 1), 100), pg = Math.max(page, 1), offset = (pg - 1) * s;
     List<Map<String, Object>> items = jdbc.queryForList(sql, patient, s, offset);

@@ -27,10 +27,15 @@ public class AdminAccountService {
     this.activeSessionService = activeSessionService;
   }
 
+  /**
+   * 管理员创建患者账户
+   * @param request 账户信息请求体
+   */
   @Transactional(rollbackFor = Exception.class)
   public AdminCreateAccountResult createPatient(
       AdminCreatePatientRequest request, HttpServletRequest httpRequest) {
     AuthenticatedUser operator = requireAdmin(httpRequest);
+    //小写处理用户名且查重账户信息
     String username = normalize(request.username());
     if (repository.usernameExists(username)) throw new UserRegistrationException(409, "用户名已存在");
     if (repository.idCardExists(request.id_card()))
@@ -56,11 +61,15 @@ public class AdminAccountService {
     }
   }
 
+  /**
+   * 管理员创建医生账户
+   */
   @Transactional(rollbackFor = Exception.class)
   public AdminCreateAccountResult createDoctor(
       AdminCreateDoctorRequest request, HttpServletRequest httpRequest) {
     AuthenticatedUser operator = requireAdmin(httpRequest);
     String username = normalize(request.username());
+    //医生信息查重
     if (repository.usernameExists(username)) throw new UserRegistrationException(409, "用户名已存在");
     if (repository.doctorNoExists(request.doctor_no()))
       throw new UserRegistrationException(409, "医生工号已存在");
@@ -87,6 +96,9 @@ public class AdminAccountService {
     }
   }
 
+  /**
+   * 管理员注册挂号员账户
+   */
   @Transactional(rollbackFor = Exception.class)
   public AdminCreateAccountResult createRegistration(
       AdminCreateRegistrationRequest request, HttpServletRequest httpRequest) {
@@ -113,6 +125,9 @@ public class AdminAccountService {
     }
   }
 
+  /**
+   * 管理员创建药房账户
+   */
   @Transactional(rollbackFor = Exception.class)
   public AdminCreateAccountResult createPharmacy(
       AdminCreatePharmacyRequest request, HttpServletRequest httpRequest) {
@@ -139,6 +154,11 @@ public class AdminAccountService {
     }
   }
 
+  /**
+   * 管理员设置账户状态
+   * @param userId 用户ID
+   * @param status 状态码
+   */
   @Transactional(rollbackFor = Exception.class)
   public void updateStatus(long userId, int status, HttpServletRequest request) {
     AuthenticatedUser operator = requireAdmin(request);
@@ -154,6 +174,9 @@ public class AdminAccountService {
         request.getRemoteAddr());
   }
 
+  /**
+   * 管理员重置用户密码
+   */
   @Transactional(rollbackFor = Exception.class)
   public void resetPassword(long userId, String password, HttpServletRequest request) {
     AuthenticatedUser operator = requireAdmin(request);
@@ -170,6 +193,9 @@ public class AdminAccountService {
         request.getRemoteAddr());
   }
 
+  /**
+   * 管理员任命科室管理员
+   */
   @Transactional(rollbackFor = Exception.class)
   public void setDepartmentManager(long userId, boolean enabled, HttpServletRequest request) {
     AuthenticatedUser operator = requireAdmin(request);
@@ -195,6 +221,9 @@ public class AdminAccountService {
         request.getRemoteAddr());
   }
 
+  /**
+   * 验证已登录且管理员身份
+   */
   private AuthenticatedUser requireAdmin(HttpServletRequest request) {
     AuthenticatedUser user = SessionAuth.require(request);
     if (user.role_codes().stream().noneMatch("ADMIN"::equalsIgnoreCase))
@@ -202,6 +231,9 @@ public class AdminAccountService {
     return user;
   }
 
+  /**
+   * 用户名小写处理
+   */
   private String normalize(String username) {
     return username.trim().toLowerCase(Locale.ROOT);
   }

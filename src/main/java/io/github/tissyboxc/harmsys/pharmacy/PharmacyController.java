@@ -22,10 +22,16 @@ public class PharmacyController {
     this.jdbc = jdbc;
   }
 
+  /**
+   * 查询所有处方
+   * @param status 状态
+   */
   @GetMapping("/prescriptions")
   public List<Map<String, Object>> list(
       @RequestParam(required = false) Integer status, HttpServletRequest request) {
+    //身份验证
     AuthenticatedUser operator = requirePharmacy(request);
+    //查询所有状态的处方
     if (status == null) {
       return jdbc.queryForList(
           "SELECT p.*,v.patient_id,pt.real_name patient_name,pt.phone patient_phone,d.real_name"
@@ -33,7 +39,9 @@ public class PharmacyController {
               + " patient pt ON pt.id=v.patient_id JOIN doctor d ON d.id=p.doctor_id WHERE p.status"
               + " IN (2,3) ORDER BY p.created_at DESC");
     }
+    //status不合法
     if (status < 1 || status > 3) throw new UserRegistrationException(422, "处方状态只能为1到3");
+    //查询指定状态的处方
     return jdbc.queryForList(
         "SELECT p.*,v.patient_id,pt.real_name patient_name,pt.phone patient_phone,d.real_name"
             + " doctor_name FROM prescription p JOIN medical_visit v ON v.id=p.visit_id JOIN"
@@ -42,6 +50,10 @@ public class PharmacyController {
         status);
   }
 
+  /**
+   * 根据ID查询处方
+   * @param id 处方ID
+   */
   @GetMapping("/prescriptions/{id}")
   public Map<String, Object> get(@PathVariable long id, HttpServletRequest request) {
     requirePharmacy(request);
@@ -60,10 +72,14 @@ public class PharmacyController {
     return result;
   }
 
+  /**
+   *处方标记已取药
+   */
   @PostMapping("/prescriptions/{id}/dispense")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   @Transactional(rollbackFor = Exception.class)
   public void dispense(@PathVariable long id, HttpServletRequest request) {
+    //身份验证
     AuthenticatedUser operator = requirePharmacy(request);
     if (jdbc.update("UPDATE prescription SET status=3 WHERE id=? AND status=2", id) != 1) {
       throw new UserRegistrationException(409, "处方不存在或当前不能标记为已取药");

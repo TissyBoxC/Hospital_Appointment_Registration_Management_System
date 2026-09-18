@@ -18,6 +18,9 @@ public class PatientController {
     this.jdbc = jdbc;
   }
 
+  /**
+   * 查看当前患者资料
+   */
   @GetMapping
   public Object get(HttpServletRequest r) {
     var u = SessionAuth.require(r);
@@ -31,6 +34,10 @@ public class PatientController {
         u.patient_id());
   }
 
+  /**
+   * 修改患者资料
+   * @param x 修改体
+   */
   @PutMapping
   public Object update(@Valid @RequestBody UpdateRequest x, HttpServletRequest r) {
     var u = SessionAuth.require(r);

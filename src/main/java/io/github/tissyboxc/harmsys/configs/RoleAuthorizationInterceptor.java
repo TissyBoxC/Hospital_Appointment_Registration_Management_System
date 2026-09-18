@@ -7,7 +7,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.servlet.HandlerInterceptor;
 
-/** 校验当前用户是否具备接口要求的角色。 */
+/**
+ * 验证用户是否属于某个角色
+ */
 public class RoleAuthorizationInterceptor implements HandlerInterceptor {
 
   private final String requiredRole;

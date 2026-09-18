@@ -10,7 +10,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.stereotype.Component;
 
@@ -20,7 +19,6 @@ public class Initializer {
 
   private static final Logger log = LoggerFactory.getLogger(Initializer.class);
   private final DataSource dataSource;
-  private final JdbcTemplate jdbcTemplate;
   private final DatabaseInitializationState initializationState;
 
   @Value("${harms.initializer.fail-fast:true}")
@@ -28,10 +26,8 @@ public class Initializer {
 
   public Initializer(
       DataSource dataSource,
-      JdbcTemplate jdbcTemplate,
       DatabaseInitializationState initializationState) {
     this.dataSource = dataSource;
-    this.jdbcTemplate = jdbcTemplate;
     this.initializationState = initializationState;
   }
 
@@ -81,49 +77,8 @@ public class Initializer {
       }
     }
     if (last != null) throw last;
-    applyCompatibleMigrations();
     initializationState.markInitialized();
     log.info("数据库初始化完成");
-  }
-
-  /** CREATE TABLE IF NOT EXISTS 不会给旧表补列，因此在这里执行可重复的字段迁移。 */
-  private void applyCompatibleMigrations() {
-    addColumnIfMissing(
-        "payment_record",
-        "refund_reason",
-        "ALTER TABLE payment_record ADD COLUMN refund_reason VARCHAR(255) NULL COMMENT '退款原因'");
-    addColumnIfMissing(
-        "payment_record",
-        "refund_operator_id",
-        "ALTER TABLE payment_record ADD COLUMN refund_operator_id BIGINT UNSIGNED NULL COMMENT"
-            + " '退款操作人'");
-    widenUserTypeConstraint();
-  }
-
-  /** 旧版本 sys_user 的 CHECK 约束只允许 1~4，药房账号需要放开到 5。 */
-  private void widenUserTypeConstraint() {
-    try {
-      jdbcTemplate.execute("ALTER TABLE sys_user DROP CHECK chk_sys_user_type");
-    } catch (Exception ignored) {
-      // 约束不存在或数据库版本不支持 DROP CHECK 时继续执行；新表已由 schema.sql 正确创建。
-    }
-    try {
-      jdbcTemplate.execute(
-          "ALTER TABLE sys_user ADD CONSTRAINT chk_sys_user_type CHECK (user_type IN (1,2,3,4,5))");
-    } catch (Exception ignored) {
-      // 已存在新约束时无需重复添加。
-    }
-  }
-
-  private void addColumnIfMissing(String table, String column, String ddl) {
-    Integer count =
-        jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND"
-                + " table_name=? AND column_name=?",
-            Integer.class,
-            table,
-            column);
-    if (count == null || count == 0) jdbcTemplate.execute(ddl);
   }
 
   private void schemaexcute() throws SQLException {

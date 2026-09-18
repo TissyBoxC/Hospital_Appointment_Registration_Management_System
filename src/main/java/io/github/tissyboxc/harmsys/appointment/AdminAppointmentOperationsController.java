@@ -11,9 +11,11 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * 管理员对预约执行操作
+ */
 @RestController
 @RequestMapping("/api/admin/appointments")
-/** 管理员对预约的修改、取消、作废和状态修复接口。 */
 public class AdminAppointmentOperationsController {
   private final JdbcTemplate jdbc;
 
@@ -21,13 +23,21 @@ public class AdminAppointmentOperationsController {
     this.jdbc = jdbc;
   }
 
+  /**
+   *
+   * @param id 存放用户id
+   * @param body 存放修改内容
+   * @return
+   */
   @PutMapping("/{id}")
   @Transactional(rollbackFor = Exception.class)
   public Map<String, Object> update(
       @PathVariable long id, @RequestBody Map<String, Object> body, HttpServletRequest request) {
     AuthenticatedUser operator = admin(request);
+    //锁定预约记录,预防并发修改
     Map<String, Object> a = one("SELECT * FROM appointment WHERE id=? FOR UPDATE", id);
     if (a == null) throw new UserRegistrationException(404, "预约不存在");
+    //如果请求体存在schedule_id或slot_id则记为需要迁移
     if (body.containsKey("schedule_id") || body.containsKey("slot_id")) {
       migrate(id, a, body, operator, request);
       a = one("SELECT * FROM appointment WHERE id=? FOR UPDATE", id);
@@ -43,7 +53,9 @@ public class AdminAppointmentOperationsController {
             ? (Integer) a.get("queue_no")
             : Integer.valueOf(String.valueOf(body.get("queue_no")));
     if (status < 1 || status > 9) throw new UserRegistrationException(422, "预约状态必须为1到9");
+    //预约退款
     int oldStatus = ((Number) a.get("status")).intValue();
+    //从有效变无效->释放当前排班
     if (oldStatus >= 1 && oldStatus <= 4 && !(status >= 1 && status <= 4)) {
       release(a);
       if (status == 6 || status == 7 || status == 8 || status == 9)
@@ -52,7 +64,9 @@ public class AdminAppointmentOperationsController {
                 + " status=5,refunded_at=COALESCE(refunded_at,CURRENT_TIMESTAMP),refund_reason=COALESCE(refund_reason,'管理员修改预约状态')"
                 + " WHERE appointment_id=? AND status=2",
             id);
-    } else if (!(oldStatus >= 1 && oldStatus <= 4) && status >= 1 && status <= 4) {
+    }
+    //从无效变有效->尝试回复号源
+    else if (!(oldStatus >= 1 && oldStatus <= 4) && status >= 1 && status <= 4) {
       Map<String, Object> schedule =
           one(
               "SELECT * FROM doctor_schedule WHERE id=? FOR UPDATE",
@@ -63,6 +77,7 @@ public class AdminAppointmentOperationsController {
           || ((Number) schedule.get("booked_count")).intValue()
               >= ((Number) schedule.get("total_count")).intValue())
         throw new UserRegistrationException(409, "无法恢复预约，排班号源不可用");
+      //有效变有效或无效变无效
       if (a.get("slot_id") != null
           && jdbc.update(
                   "UPDATE schedule_slot SET status=1 WHERE id=? AND status=0",
@@ -72,6 +87,7 @@ public class AdminAppointmentOperationsController {
           "UPDATE doctor_schedule SET booked_count=booked_count+1 WHERE id=?",
           ((Number) a.get("schedule_id")).longValue());
     }
+    //返回更新后的预约信息
     jdbc.update(
         "UPDATE appointment SET queue_no=?,status=?,remark=? WHERE id=?",
         queueNo,
@@ -86,29 +102,39 @@ public class AdminAppointmentOperationsController {
         id);
   }
 
-  /** 在事务内迁移预约到另一排班/时间段，并同步两边号源和时间段状态。 */
+  /**
+   *update的辅助私有方法,完成换排班/时间段的迁移,同步释放旧号源占用新号源
+   * @param id 用户id
+   * @param current 迁移前拿到的预约记录
+   * @param body 请求体中的新预约记录
+   */
   private void migrate(
       long id,
       Map<String, Object> current,
       Map<String, Object> body,
       AuthenticatedUser operator,
       HttpServletRequest request) {
+    //校验当前预约状态,1-4才可以迁移
     int currentStatus = ((Number) current.get("status")).intValue();
     if (currentStatus < 1 || currentStatus > 4)
       throw new UserRegistrationException(409, "只有有效预约可以迁移");
+    //确定目标排班
     long targetSchedule =
         body.get("schedule_id") == null
             ? ((Number) current.get("schedule_id")).longValue()
             : Long.parseLong(String.valueOf(body.get("schedule_id")));
+    //确定目标时间段
     Long targetSlot =
         body.containsKey("slot_id") && body.get("slot_id") != null
             ? Long.parseLong(String.valueOf(body.get("slot_id")))
             : (body.containsKey("slot_id")
                 ? null
+                //没有传入slot_id,但原slot_id不适用
                 : (targetSchedule == ((Number) current.get("schedule_id")).longValue()
                         && current.get("slot_id") != null
                     ? ((Number) current.get("slot_id")).longValue()
                     : null));
+    //锁定,校验目前排班
     Map<String, Object> schedule =
         one("SELECT * FROM doctor_schedule WHERE id=? FOR UPDATE", targetSchedule);
     if (schedule == null
@@ -118,9 +144,11 @@ public class AdminAppointmentOperationsController {
     if (schedule.get("schedule_date") instanceof java.sql.Date d
         && d.toLocalDate().isBefore(java.time.LocalDate.now()))
       throw new UserRegistrationException(409, "目标排班日期已过");
+    //记录旧排班和时间段
     long oldSchedule = ((Number) current.get("schedule_id")).longValue();
     Long oldSlot =
         current.get("slot_id") == null ? null : ((Number) current.get("slot_id")).longValue();
+    //防止重复预约同一排班
     if (targetSchedule != oldSchedule
         && count(
                 "SELECT COUNT(*) FROM appointment WHERE patient_id=? AND schedule_id=? AND id<>?"
@@ -130,6 +158,7 @@ public class AdminAppointmentOperationsController {
                 id)
             > 0) throw new UserRegistrationException(409, "患者已预约目标排班");
     if (targetSchedule != oldSchedule
+            //检查目标排班号源是否已满
         && ((Number) schedule.get("booked_count")).intValue()
             >= ((Number) schedule.get("total_count")).intValue())
       throw new UserRegistrationException(409, "目标排班号源已满");
@@ -142,6 +171,7 @@ public class AdminAppointmentOperationsController {
       if (slot == null || ((Number) slot.get("status")).intValue() != 0)
         throw new UserRegistrationException(409, "目标时间段不可用");
     }
+    //释放旧时间段,占用新时间段
     if (oldSlot != null && !Objects.equals(oldSlot, targetSlot))
       jdbc.update("UPDATE schedule_slot SET status=0 WHERE id=? AND status=1", oldSlot);
     if (targetSlot != null && !Objects.equals(oldSlot, targetSlot))
@@ -156,6 +186,7 @@ public class AdminAppointmentOperationsController {
               targetSchedule)
           != 1) throw new UserRegistrationException(409, "目标排班号源已满");
     }
+    //更新排班信息
     jdbc.update(
         "UPDATE appointment SET"
             + " doctor_id=?,department_id=?,schedule_id=?,slot_id=?,appointment_date=?,period=?,fee=?"
@@ -176,6 +207,11 @@ public class AdminAppointmentOperationsController {
         request);
   }
 
+  /**
+   * 将有效预约置为“7”,释放号源并退款
+   * @param id 用户id
+   * @param body 可空请求体
+   */
   @PostMapping("/{id}/cancel")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   @Transactional(rollbackFor = Exception.class)
@@ -184,9 +220,11 @@ public class AdminAppointmentOperationsController {
       @RequestBody(required = false) Map<String, Object> body,
       HttpServletRequest request) {
     AuthenticatedUser operator = admin(request);
+    //查询当前用户的预约
     Map<String, Object> a = one("SELECT * FROM appointment WHERE id=? FOR UPDATE", id);
     if (a == null) throw new UserRegistrationException(404, "预约不存在");
     int status = ((Number) a.get("status")).intValue();
+    //已就诊/完成的预约不能取消
     if (status < 1 || status > 4) throw new UserRegistrationException(409, "当前预约不能取消");
     String reason =
         body == null || body.get("reason") == null ? "管理员取消预约" : String.valueOf(body.get("reason"));
@@ -202,6 +240,10 @@ public class AdminAppointmentOperationsController {
     log(operator.user_id(), "ADMIN_CANCEL_APPOINTMENT", id, reason, request);
   }
 
+  /**
+   * 将待支付/已过期的预约置"8"已过期
+   * @param id 用户id
+   */
   @PostMapping("/{id}/expire")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   @Transactional(rollbackFor = Exception.class)
@@ -218,6 +260,9 @@ public class AdminAppointmentOperationsController {
     log(operator.user_id(), "ADMIN_EXPIRE_APPOINTMENT", id, "管理员标记预约过期", request);
   }
 
+  /**
+   * 释放时间段并减少预约数
+   */
   private void release(Map<String, Object> a) {
     Object slot = a.get("slot_id");
     if (slot != null)
@@ -228,6 +273,10 @@ public class AdminAppointmentOperationsController {
         ((Number) a.get("schedule_id")).longValue());
   }
 
+
+  /**
+   * 执行sql语句,返回json体
+   */
   private Map<String, Object> one(String sql, Object... args) {
     return jdbc.query(sql, rs -> rs.next() ? row(rs) : null, args);
   }
@@ -244,6 +293,10 @@ public class AdminAppointmentOperationsController {
     return m;
   }
 
+
+  /**
+   * 验证管理员身份
+   */
   private AuthenticatedUser admin(HttpServletRequest r) {
     AuthenticatedUser u = SessionAuth.require(r);
     if (u.role_codes().stream().noneMatch(x -> x.equalsIgnoreCase("ADMIN")))
@@ -251,6 +304,10 @@ public class AdminAppointmentOperationsController {
     return u;
   }
 
+
+  /**
+   * 向数据库写日志
+   */
   private void log(long uid, String type, long id, String desc, HttpServletRequest r) {
     jdbc.update(
         "INSERT INTO"

@@ -20,6 +20,11 @@ public class ScheduleLifecycleController {
     this.jdbc = jdbc;
   }
 
+  /**
+   * 管理员取消指定排班->停诊
+   * @param id 排班ID
+   * @param body 包含原因的请求体
+   */
   @PostMapping("/api/admin/schedules/{id}/stop")
   @Transactional(rollbackFor = Exception.class)
   public Map<String, Object> adminStop(
@@ -34,6 +39,11 @@ public class ScheduleLifecycleController {
         request);
   }
 
+  /**
+   * 医生停诊
+   * @param id 医生ID
+   * @param body 包含原因的请求体
+   */
   @PostMapping("/api/doctor/schedules/{id}/stop")
   @Transactional(rollbackFor = Exception.class)
   public Map<String, Object> doctorStop(
@@ -54,6 +64,11 @@ public class ScheduleLifecycleController {
         request);
   }
 
+  /**
+   * 管理员修改排班状态
+   * @param id 排班ID
+   * @param body 包含状态码的请求体
+   */
   @PutMapping("/api/admin/schedules/{id}/status")
   public Map<String, Object> status(
       @PathVariable long id, @RequestBody Map<String, Object> body, HttpServletRequest request) {
@@ -66,6 +81,11 @@ public class ScheduleLifecycleController {
     return one("SELECT * FROM doctor_schedule WHERE id=?", id);
   }
 
+  /**
+   * 管理员修改时间段信息
+   * @param slotId 时间段ID
+   * @param body 修改内容
+   */
   @PutMapping("/api/admin/schedules/slots/{slotId}")
   @Transactional(rollbackFor = Exception.class)
   public Map<String, Object> updateAdminSlot(
@@ -91,6 +111,10 @@ public class ScheduleLifecycleController {
     return one("SELECT * FROM schedule_slot WHERE id=?", slotId);
   }
 
+  /**
+   * 管理员删除指定时间段
+   * @param slotId 时间段ID
+   */
   @DeleteMapping("/api/admin/schedules/slots/{slotId}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   @Transactional(rollbackFor = Exception.class)
@@ -108,12 +132,21 @@ public class ScheduleLifecycleController {
     log(op.user_id(), "ADMIN_DELETE_SLOT", "schedule_slot", slotId, "管理员删除时间段", request);
   }
 
+  /**
+   * 停诊处理
+   * @param id 排班ID
+   * @param reason 原因
+   * @param uid 操作者ID
+   */
   private Map<String, Object> stop(long id, String reason, long uid, HttpServletRequest request) {
     Map<String, Object> s = one("SELECT * FROM doctor_schedule WHERE id=? FOR UPDATE", id);
     if (s == null) throw new UserRegistrationException(404, "排班不存在");
     return stopLocked(id, reason, uid, request);
   }
 
+  /**
+   *医生排班停诊,并处理已预约信息
+   */
   private Map<String, Object> stopLocked(
       long id, String reason, long uid, HttpServletRequest request) {
     jdbc.update("UPDATE doctor_schedule SET status=2,remark=? WHERE id=?", reason, id);
@@ -122,25 +155,32 @@ public class ScheduleLifecycleController {
             "SELECT id,slot_id FROM appointment WHERE schedule_id=? AND status IN (1,2,3,4)", id);
     for (Map<String, Object> a : list) {
       long aid = ((Number) a.get("id")).longValue();
+      //更新预约信息
       jdbc.update(
           "UPDATE appointment SET status=7,cancel_reason=?,cancelled_at=CURRENT_TIMESTAMP WHERE"
               + " id=?",
           reason,
           aid);
+      //释放号源
       if (a.get("slot_id") != null)
         jdbc.update(
             "UPDATE schedule_slot SET status=0 WHERE id=? AND status=1",
             ((Number) a.get("slot_id")).longValue());
+      //退款处理
       jdbc.update(
           "UPDATE payment_record SET status=5,refunded_at=CURRENT_TIMESTAMP WHERE appointment_id=?"
               + " AND status=2",
           aid);
     }
+    //更新已预约数为0
     jdbc.update("UPDATE doctor_schedule SET booked_count=0 WHERE id=?", id);
     log(uid, "STOP_SCHEDULE", "doctor_schedule", id, "停诊并批量取消预约", request);
     return one("SELECT * FROM doctor_schedule WHERE id=?", id);
   }
 
+  /**
+   * 验证已登录同时验证管理员身份
+   */
   private AuthenticatedUser admin(HttpServletRequest r) {
     AuthenticatedUser u = SessionAuth.require(r);
     if (u.role_codes().stream().noneMatch(x -> x.equalsIgnoreCase("ADMIN")))
@@ -148,6 +188,9 @@ public class ScheduleLifecycleController {
     return u;
   }
 
+  /**
+   * 验证已登录同时验证医生身份
+   */
   private AuthenticatedUser doctor(HttpServletRequest r) {
     AuthenticatedUser u = SessionAuth.require(r);
     if (u.doctor_id() == null
@@ -167,6 +210,9 @@ public class ScheduleLifecycleController {
     return m;
   }
 
+  /**
+   * 统一日志逻辑
+   */
   private void log(
       long uid, String type, String target, long id, String desc, HttpServletRequest r) {
     jdbc.update(

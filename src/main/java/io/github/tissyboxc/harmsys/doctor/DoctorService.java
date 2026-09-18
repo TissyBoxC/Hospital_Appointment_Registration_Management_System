@@ -25,15 +25,23 @@ public class DoctorService {
     this.authorizationService = authorizationService;
   }
 
+  /**
+   * 获取医生个人资料
+   */
   public DoctorProfileResult profile(HttpServletRequest request) {
     return repository
         .findProfile(currentDoctor(request).doctor_id())
         .orElseThrow(() -> new UserRegistrationException(404, "医生资料不存在"));
   }
 
+  /**
+   * 医生修改个人信息
+   * @param update 下游请求体,包含修改信息
+   */
   @Transactional(rollbackFor = Exception.class)
   public DoctorProfileResult updateProfile(
       DoctorProfileUpdateRequest update, HttpServletRequest request) {
+    //同时验证已登录和身份
     AuthenticatedUser user = currentDoctor(request);
     repository.updateProfile(user.doctor_id(), update);
     repository.writeLog(
@@ -46,26 +54,45 @@ public class DoctorService {
     return profile(request);
   }
 
+  /**
+   * 医生获取自己的排班信息
+   */
   public List<ScheduleResult> schedules(HttpServletRequest request) {
     return repository.findSchedules(currentDoctor(request).doctor_id());
   }
 
+  /**
+   * 查询所有排班信息
+   */
   public List<ScheduleResult> allSchedules(HttpServletRequest request) {
     requireAdmin(request);
     return repository.findAllSchedules();
   }
 
+  /**
+   * 查询排班信息统一逻辑
+   * @param scheduleId 排班ID
+   */
   public ScheduleResult schedule(long scheduleId) {
     return repository
         .findSchedule(scheduleId)
         .orElseThrow(() -> new UserRegistrationException(404, "排班不存在"));
   }
 
+  /**
+   *管理员查询所有排班
+   * @param scheduleId 排班ID
+   * @param request 请求体,用于身份验证
+   */
   public ScheduleResult adminSchedule(long scheduleId, HttpServletRequest request) {
     requireAdmin(request);
     return schedule(scheduleId);
   }
 
+  /**
+   * 医生查询自己排班的具体信息
+   * @param scheduleId 排班ID
+   */
   public ScheduleResult scheduleForDoctor(long scheduleId, HttpServletRequest request) {
     AuthenticatedUser user = currentDoctor(request);
     if (!repository.scheduleBelongsTo(scheduleId, user.doctor_id()))
@@ -73,6 +100,9 @@ public class DoctorService {
     return schedule(scheduleId);
   }
 
+  /**
+   * 医生创建自己的排班信息
+   */
   @Transactional(rollbackFor = Exception.class)
   public ScheduleResult createOwnSchedule(ScheduleRequest request, HttpServletRequest httpRequest) {
     AuthenticatedUser user = currentDoctor(httpRequest);
@@ -105,13 +135,19 @@ public class DoctorService {
     }
   }
 
+  /**
+   * 管理员创建医生排班
+   */
   @Transactional(rollbackFor = Exception.class)
   public ScheduleResult createAdminSchedule(
       ScheduleRequest request, HttpServletRequest httpRequest) {
+    //身份验证
     AuthenticatedUser user = requireAdmin(httpRequest);
+    //排班信息校验
     validateSchedule(request);
     if (!repository.departmentMatchesDoctor(request.doctor_id(), request.department_id()))
       throw new UserRegistrationException(422, "排班科室与医生所属科室不一致");
+
     try {
       long id = repository.insertSchedule(request);
       repository.writeLog(
@@ -127,6 +163,11 @@ public class DoctorService {
     }
   }
 
+  /**
+   * 医生修改自己排班信息
+   * @param scheduleId 排班ID
+   * @param request 修改信息
+   */
   @Transactional(rollbackFor = Exception.class)
   public ScheduleResult updateOwnSchedule(
       long scheduleId, ScheduleRequest request, HttpServletRequest httpRequest) {
@@ -158,9 +199,13 @@ public class DoctorService {
     return repository.findSchedule(scheduleId).orElseThrow();
   }
 
+  /**
+   * 管理员修改排班信息
+   */
   @Transactional(rollbackFor = Exception.class)
   public ScheduleResult updateAdminSchedule(
       long scheduleId, ScheduleRequest request, HttpServletRequest httpRequest) {
+    //身份验证
     AuthenticatedUser user = requireAdmin(httpRequest);
     if (repository.findSchedule(scheduleId).isEmpty())
       throw new UserRegistrationException(404, "排班不存在");
@@ -178,6 +223,10 @@ public class DoctorService {
     return repository.findSchedule(scheduleId).orElseThrow();
   }
 
+  /**
+   * 医生删除指定排班信息
+   * @param scheduleId 排班ID
+   */
   @Transactional(rollbackFor = Exception.class)
   public void deleteOwnSchedule(long scheduleId, HttpServletRequest request) {
     AuthenticatedUser user = currentDoctor(request);
@@ -193,6 +242,10 @@ public class DoctorService {
         request.getRemoteAddr());
   }
 
+  /**
+   * 删除指定排班信息
+   * @param scheduleId 排班ID
+   */
   @Transactional(rollbackFor = Exception.class)
   public void deleteAdminSchedule(long scheduleId, HttpServletRequest request) {
     AuthenticatedUser user = requireAdmin(request);
@@ -208,6 +261,11 @@ public class DoctorService {
         request.getRemoteAddr());
   }
 
+  /**
+   * 管理员获取当前排班的时间段信息
+   * @param scheduleId 排班ID
+   * @param request 下游请求体,用于身份验证
+   */
   public List<SlotResult> adminSlots(long scheduleId, HttpServletRequest request) {
     requireAdmin(request);
     if (repository.findSchedule(scheduleId).isEmpty())
@@ -215,6 +273,11 @@ public class DoctorService {
     return repository.findSlots(scheduleId);
   }
 
+  /**
+   * 管理员创建时间段信息
+   * @param scheduleId 排班ID
+   * @param slot 包含时间段请求体
+   */
   @Transactional(rollbackFor = Exception.class)
   public SlotResult createAdminSlot(long scheduleId, SlotRequest slot, HttpServletRequest request) {
     AuthenticatedUser user = requireAdmin(request);
@@ -236,6 +299,11 @@ public class DoctorService {
     }
   }
 
+  /**
+   * 管理员修改指定时间段的状态
+   * @param slotId 时间段
+   * @param status 包含状态的请求体
+   */
   @Transactional(rollbackFor = Exception.class)
   public void adminUpdateSlotStatus(long slotId, int status, HttpServletRequest request) {
     AuthenticatedUser user = requireAdmin(request);
@@ -250,6 +318,10 @@ public class DoctorService {
         request.getRemoteAddr());
   }
 
+  /**
+   * 获取排班的时间段信息
+   * @param scheduleId 排班ID
+   */
   public List<SlotResult> slots(long scheduleId, HttpServletRequest request) {
     AuthenticatedUser user = currentDoctor(request);
     if (!repository.scheduleBelongsTo(scheduleId, user.doctor_id()))
@@ -257,6 +329,11 @@ public class DoctorService {
     return repository.findSlots(scheduleId);
   }
 
+  /**
+   * 创建指定排版的时间段
+   * @param scheduleId 排班ID
+   * @param slot 时间段信息
+   */
   @Transactional(rollbackFor = Exception.class)
   public SlotResult createOwnSlot(long scheduleId, SlotRequest slot, HttpServletRequest request) {
     AuthenticatedUser user = currentDoctor(request);
@@ -278,6 +355,9 @@ public class DoctorService {
     }
   }
 
+  /**
+   * 修改时间段状态
+   */
   @Transactional(rollbackFor = Exception.class)
   public void updateSlotStatus(long slotId, int status, HttpServletRequest request) {
     AuthenticatedUser user = currentDoctor(request);
@@ -296,6 +376,14 @@ public class DoctorService {
         request.getRemoteAddr());
   }
 
+  /**
+   * 排班信息校验
+   * 必须存在doctor_id
+   * 日期早于现在
+   * 开始时间早于结束时间
+   * 医生状态
+   * @param r 请求体,包含排班信息
+   */
   private void validateSchedule(ScheduleRequest r) {
     if (r.doctor_id() == null) throw new UserRegistrationException(422, "必须指定医生");
     if (r.schedule_date().isBefore(LocalDate.now()))
@@ -320,6 +408,11 @@ public class DoctorService {
       throw new UserRegistrationException(409, "时间段序号或时间范围重复");
   }
 
+  /**
+   * 根据请求体获取当前医生ID
+   * @param request 当前登录的请求体
+   * @return 验证通过的请求体
+   */
   private AuthenticatedUser currentDoctor(HttpServletRequest request) {
     AuthenticatedUser u = SessionAuth.require(request);
     if (u.doctor_id() == null
@@ -328,6 +421,9 @@ public class DoctorService {
     return u;
   }
 
+  /**
+   * 管理员身份验证
+   */
   private AuthenticatedUser requireAdmin(HttpServletRequest request) {
     AuthenticatedUser u = SessionAuth.require(request);
     if (u.role_codes().stream().noneMatch(r -> r.equalsIgnoreCase("ADMIN")))

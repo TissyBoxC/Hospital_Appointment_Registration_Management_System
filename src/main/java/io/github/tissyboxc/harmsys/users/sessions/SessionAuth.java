@@ -12,6 +12,10 @@ public final class SessionAuth {
 
   private SessionAuth() {}
 
+  /**
+   * 创建或获取HTTP Session,将固定属性写入Session用于验证
+   * @param user 用户
+   */
   public static void establish(HttpServletRequest request, AuthenticatedUser user) {
     HttpSession session = request.getSession(true);
 
@@ -37,8 +41,12 @@ public final class SessionAuth {
     return Optional.empty();
   }
 
+  /**
+   * 验证是否登录
+   */
   public static AuthenticatedUser require(HttpServletRequest request) {
-    return current(request).orElseThrow(() -> new SessionAuthenticationException(401, "请先登录"));
+    return current(request)
+            .orElseThrow(() -> new SessionAuthenticationException(401, "请先登录"));
   }
 
   public static int timeoutSeconds(HttpServletRequest request) {

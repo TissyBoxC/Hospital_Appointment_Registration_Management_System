@@ -18,6 +18,10 @@ public class UserLoginController {
     this.userLoginService = userLoginService;
   }
 
+  /**
+   * 用户登录接口
+   * @param request 下游请求体
+   */
   @PostMapping("/login")
   @ResponseStatus(HttpStatus.OK)
   public LoginResult login(
@@ -25,11 +29,17 @@ public class UserLoginController {
     return userLoginService.login(request, httpRequest);
   }
 
+  /**
+   * 用户进入主页,获取信息
+   */
   @GetMapping("/me")
   public LoginResult currentUser(HttpServletRequest request) {
     return userLoginService.currentUser(request);
   }
 
+  /**
+   * 用户登出
+   */
   @PostMapping("/logout")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void logout(HttpServletRequest request) {

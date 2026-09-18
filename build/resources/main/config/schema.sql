@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS sys_user (
   CONSTRAINT chk_sys_user_type CHECK (user_type IN (1,2,3,4,5)),
   CONSTRAINT chk_sys_user_status CHECK (status IN (0,1)),
   CONSTRAINT chk_sys_user_deleted CHECK (deleted IN (0,1))
-) ENGINE=InnoDB COMMENT='用户账号';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='用户账号';
 
 -- 2. 患者
 CREATE TABLE IF NOT EXISTS patient (
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS patient (
   CONSTRAINT fk_patient_user FOREIGN KEY (user_id) REFERENCES sys_user(id),
   CONSTRAINT chk_patient_gender CHECK (gender IN (0,1,2)),
   CONSTRAINT chk_patient_deleted CHECK (deleted IN (0,1))
-) ENGINE=InnoDB COMMENT='患者';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='患者';
 
 -- 3. 科室（parent_id 为 NULL 表示顶级科室）
 CREATE TABLE IF NOT EXISTS department (
@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS department (
   CONSTRAINT fk_department_parent FOREIGN KEY (parent_id) REFERENCES department(id),
   CONSTRAINT chk_department_status CHECK (status IN (0,1)),
   CONSTRAINT chk_department_deleted CHECK (deleted IN (0,1))
-) ENGINE=InnoDB COMMENT='科室';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='科室';
 
 -- 4. 医生
 CREATE TABLE IF NOT EXISTS doctor (
@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS doctor (
   CONSTRAINT chk_doctor_fee CHECK (consultation_fee >= 0),
   CONSTRAINT chk_doctor_status CHECK (status IN (0,1)),
   CONSTRAINT chk_doctor_deleted CHECK (deleted IN (0,1))
-) ENGINE=InnoDB COMMENT='医生';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='医生';
 
 -- 5. 医生排班和号源
 CREATE TABLE IF NOT EXISTS doctor_schedule (
@@ -118,7 +118,7 @@ CREATE TABLE IF NOT EXISTS doctor_schedule (
   CONSTRAINT chk_schedule_fee CHECK (fee >= 0),
   CONSTRAINT chk_schedule_status CHECK (status IN (0,1,2,3)),
   CONSTRAINT chk_schedule_time CHECK (start_time < end_time)
-) ENGINE=InnoDB COMMENT='医生排班';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='医生排班';
 
 -- 6. 排班时间段
 CREATE TABLE IF NOT EXISTS schedule_slot (
@@ -137,7 +137,7 @@ CREATE TABLE IF NOT EXISTS schedule_slot (
   CONSTRAINT chk_slot_no CHECK (slot_no > 0),
   CONSTRAINT chk_slot_status CHECK (status IN (0,1,2)),
   CONSTRAINT chk_slot_time CHECK (start_time < end_time)
-) ENGINE=InnoDB COMMENT='排班时间段';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='排班时间段';
 
 -- 7. 预约挂号
 CREATE TABLE IF NOT EXISTS appointment (
@@ -175,7 +175,7 @@ CREATE TABLE IF NOT EXISTS appointment (
   CONSTRAINT chk_appointment_period CHECK (period IN (1,2,3)),
   CONSTRAINT chk_appointment_fee CHECK (fee >= 0),
   CONSTRAINT chk_appointment_status CHECK (status IN (1,2,3,4,5,6,7,8,9))
-) ENGINE=InnoDB COMMENT='预约挂号';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='预约挂号';
 
 -- 8. 支付记录
 CREATE TABLE IF NOT EXISTS payment_record (
@@ -204,7 +204,7 @@ CREATE TABLE IF NOT EXISTS payment_record (
   CONSTRAINT chk_payment_amount CHECK (amount >= 0),
   CONSTRAINT chk_payment_method CHECK (payment_method IN (1,2,3,4)),
   CONSTRAINT chk_payment_status CHECK (status IN (1,2,3,4,5))
-) ENGINE=InnoDB COMMENT='支付记录';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='支付记录';
 
 -- 9. 就诊记录
 CREATE TABLE IF NOT EXISTS medical_visit (
@@ -231,7 +231,7 @@ CREATE TABLE IF NOT EXISTS medical_visit (
   CONSTRAINT fk_visit_patient FOREIGN KEY (patient_id) REFERENCES patient(id),
   CONSTRAINT fk_visit_doctor FOREIGN KEY (doctor_id) REFERENCES doctor(id),
   CONSTRAINT chk_visit_status CHECK (status IN (1,2,3))
-) ENGINE=InnoDB COMMENT='就诊记录';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='就诊记录';
 
 -- 10. 诊断记录
 CREATE TABLE IF NOT EXISTS diagnosis_record (
@@ -246,7 +246,7 @@ CREATE TABLE IF NOT EXISTS diagnosis_record (
   KEY idx_diagnosis_visit (visit_id),
   CONSTRAINT fk_diagnosis_visit FOREIGN KEY (visit_id) REFERENCES medical_visit(id),
   CONSTRAINT chk_diagnosis_type CHECK (diagnosis_type IN (1,2))
-) ENGINE=InnoDB COMMENT='诊断记录';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='诊断记录';
 
 -- 11. 处方
 CREATE TABLE IF NOT EXISTS prescription (
@@ -263,7 +263,7 @@ CREATE TABLE IF NOT EXISTS prescription (
   CONSTRAINT fk_prescription_visit FOREIGN KEY (visit_id) REFERENCES medical_visit(id),
   CONSTRAINT fk_prescription_doctor FOREIGN KEY (doctor_id) REFERENCES doctor(id),
   CONSTRAINT chk_prescription_status CHECK (status IN (1,2,3))
-) ENGINE=InnoDB COMMENT='处方';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='处方';
 
 -- 12. 处方明细
 CREATE TABLE IF NOT EXISTS prescription_item (
@@ -281,7 +281,7 @@ CREATE TABLE IF NOT EXISTS prescription_item (
   CONSTRAINT fk_prescription_item_prescription FOREIGN KEY (prescription_id) REFERENCES prescription(id),
   CONSTRAINT chk_prescription_item_days CHECK (days > 0),
   CONSTRAINT chk_prescription_item_quantity CHECK (quantity > 0)
-) ENGINE=InnoDB COMMENT='处方明细';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='处方明细';
 
 -- 13. 角色
 CREATE TABLE IF NOT EXISTS sys_role (
@@ -293,7 +293,7 @@ CREATE TABLE IF NOT EXISTS sys_role (
   PRIMARY KEY (id),
   UNIQUE KEY uk_role_code (role_code),
   CONSTRAINT chk_role_status CHECK (status IN (0,1))
-) ENGINE=InnoDB COMMENT='角色';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='角色';
 
 -- 14. 用户角色关联
 CREATE TABLE IF NOT EXISTS sys_user_role (
@@ -302,7 +302,7 @@ CREATE TABLE IF NOT EXISTS sys_user_role (
   PRIMARY KEY (user_id, role_id),
   CONSTRAINT fk_user_role_user FOREIGN KEY (user_id) REFERENCES sys_user(id),
   CONSTRAINT fk_user_role_role FOREIGN KEY (role_id) REFERENCES sys_role(id)
-) ENGINE=InnoDB COMMENT='用户角色关联';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='用户角色关联';
 
 -- 15. 权限
 CREATE TABLE IF NOT EXISTS sys_permission (
@@ -314,7 +314,7 @@ CREATE TABLE IF NOT EXISTS sys_permission (
   PRIMARY KEY (id),
   UNIQUE KEY uk_permission_code (permission_code),
   CONSTRAINT chk_permission_type CHECK (type IN (1,2,3))
-) ENGINE=InnoDB COMMENT='权限';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='权限';
 
 -- 16. 角色权限关联
 CREATE TABLE IF NOT EXISTS sys_role_permission (
@@ -323,7 +323,7 @@ CREATE TABLE IF NOT EXISTS sys_role_permission (
   PRIMARY KEY (role_id, permission_id),
   CONSTRAINT fk_role_permission_role FOREIGN KEY (role_id) REFERENCES sys_role(id),
   CONSTRAINT fk_role_permission_permission FOREIGN KEY (permission_id) REFERENCES sys_permission(id)
-) ENGINE=InnoDB COMMENT='角色权限关联';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='角色权限关联';
 
 -- 17. 操作日志
 CREATE TABLE IF NOT EXISTS operation_log (
@@ -339,7 +339,7 @@ CREATE TABLE IF NOT EXISTS operation_log (
   KEY idx_log_user_time (user_id, created_at),
   KEY idx_log_target (target_type, target_id),
   CONSTRAINT fk_operation_log_user FOREIGN KEY (user_id) REFERENCES sys_user(id)
-) ENGINE=InnoDB COMMENT='操作日志';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='操作日志';
 
 -- 基础角色与权限：使用幂等写入，应用每次启动执行 schema.sql 时不会产生重复数据
 INSERT INTO sys_role (role_code, role_name, status) VALUES
@@ -385,7 +385,7 @@ CREATE TABLE IF NOT EXISTS appointment_idempotency (
   UNIQUE KEY uk_appointment_idempotency_request (request_no, patient_id),
   CONSTRAINT fk_idempotency_patient FOREIGN KEY (patient_id) REFERENCES patient(id),
   CONSTRAINT fk_idempotency_appointment FOREIGN KEY (appointment_id) REFERENCES appointment(id)
-) ENGINE=InnoDB COMMENT='预约幂等请求';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='预约幂等请求';
 
 -- 19. 系统通知
 CREATE TABLE IF NOT EXISTS system_notification (
@@ -401,7 +401,7 @@ CREATE TABLE IF NOT EXISTS system_notification (
   KEY idx_notification_user (user_id, read_status, created_at),
   CONSTRAINT fk_notification_user FOREIGN KEY (user_id) REFERENCES sys_user(id),
   CONSTRAINT chk_notification_read_status CHECK (read_status IN (0,1))
-) ENGINE=InnoDB COMMENT='系统通知';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='系统通知';
 
 -- 20. 系统参数
 CREATE TABLE IF NOT EXISTS system_config (
@@ -410,7 +410,7 @@ CREATE TABLE IF NOT EXISTS system_config (
   description VARCHAR(255) NULL,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (config_key)
-) ENGINE=InnoDB COMMENT='系统参数';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='系统参数';
 
 -- 21. 数据库版本
 CREATE TABLE IF NOT EXISTS database_schema_version (
@@ -418,7 +418,7 @@ CREATE TABLE IF NOT EXISTS database_schema_version (
   description VARCHAR(255) NOT NULL,
   applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (version)
-) ENGINE=InnoDB COMMENT='数据库版本';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='数据库版本';
 
 INSERT INTO system_config(config_key, config_value, description) VALUES
 ('appointment.payment.mode', 'MOCK_AUTO_SUCCESS', '预约支付模式'),
@@ -439,7 +439,7 @@ CREATE TABLE IF NOT EXISTS login_attempt (
   last_attempt_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (username, ip_address),
   CONSTRAINT chk_login_attempt_count CHECK (fail_count >= 0)
-) ENGINE=InnoDB COMMENT='登录失败控制';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='登录失败控制';
 
 INSERT INTO database_schema_version(version, description) VALUES (2, '退款审计、幂等、通知、系统参数和登录保护')
 ON DUPLICATE KEY UPDATE description = VALUES(description);
@@ -454,7 +454,7 @@ CREATE TABLE IF NOT EXISTS active_session (
   PRIMARY KEY (session_id),
   KEY idx_active_session_user (user_id),
   CONSTRAINT fk_active_session_user FOREIGN KEY (user_id) REFERENCES sys_user(id)
-) ENGINE=InnoDB COMMENT='活跃登录会话';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='活跃登录会话';
 
 -- 24. 医疗附件、检查报告和检验结果
 CREATE TABLE IF NOT EXISTS medical_attachment (
@@ -475,7 +475,7 @@ CREATE TABLE IF NOT EXISTS medical_attachment (
   CONSTRAINT fk_attachment_patient FOREIGN KEY (patient_id) REFERENCES patient(id),
   CONSTRAINT fk_attachment_visit FOREIGN KEY (visit_id) REFERENCES medical_visit(id),
   CONSTRAINT fk_attachment_uploader FOREIGN KEY (uploader_user_id) REFERENCES sys_user(id)
-) ENGINE=InnoDB COMMENT='医疗文件附件';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='医疗文件附件';
 
 -- 25. 系统公告
 CREATE TABLE IF NOT EXISTS system_announcement (
@@ -490,7 +490,7 @@ CREATE TABLE IF NOT EXISTS system_announcement (
   PRIMARY KEY (id),
   KEY idx_announcement_status_time (status, published_at),
   CONSTRAINT fk_announcement_publisher FOREIGN KEY (publisher_user_id) REFERENCES sys_user(id)
-) ENGINE=InnoDB COMMENT='系统公告';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='系统公告';
 
 -- 26. 外部通知发送队列：当前为短信/邮件模拟接口
 CREATE TABLE IF NOT EXISTS notification_outbox (
@@ -507,7 +507,7 @@ CREATE TABLE IF NOT EXISTS notification_outbox (
   PRIMARY KEY (id),
   KEY idx_outbox_status (status, created_at),
   CONSTRAINT fk_outbox_user FOREIGN KEY (user_id) REFERENCES sys_user(id)
-) ENGINE=InnoDB COMMENT='短信邮件发送队列';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='短信邮件发送队列';
 
 INSERT INTO database_schema_version(version, description) VALUES (3, '活跃会话、医疗附件、公告和通知发送队列')
 ON DUPLICATE KEY UPDATE description = VALUES(description);

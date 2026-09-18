@@ -17,6 +17,10 @@ public class AdminUserPageController {
     this.jdbc = jdbc;
   }
 
+  /**
+   * 管理员分页查询用户信息
+   * @param keyword 模糊匹配患者名,真实姓名,医生真实姓名
+   */
   @GetMapping("/page")
   public Map<String, Object> page(
       @RequestParam(defaultValue = "1") int page,
@@ -70,6 +74,9 @@ public class AdminUserPageController {
     return out;
   }
 
+  /**
+   * 验证已登录和医生身份
+   */
   private void admin(HttpServletRequest r) {
     AuthenticatedUser u = SessionAuth.require(r);
     if (u.role_codes().stream().noneMatch(x -> x.equalsIgnoreCase("ADMIN")))

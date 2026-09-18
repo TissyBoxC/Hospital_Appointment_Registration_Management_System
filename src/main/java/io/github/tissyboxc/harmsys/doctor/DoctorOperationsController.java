@@ -21,6 +21,10 @@ public class DoctorOperationsController {
     this.jdbc = jdbc;
   }
 
+  /**
+   * 医生获取自己的患者
+   * @param keyword 匹配患者ID,真实姓名，电话
+   */
   @GetMapping("/patients")
   public List<Map<String, Object>> patients(
       @RequestParam(required = false) String keyword, HttpServletRequest request) {
@@ -35,6 +39,10 @@ public class DoctorOperationsController {
         like);
   }
 
+  /**
+   * 医生获取指定患者的信息
+   * @param id 患者ID
+   */
   @GetMapping("/patients/{id}")
   public Map<String, Object> patient(@PathVariable long id, HttpServletRequest request) {
     long doctor = doctor(request).doctor_id();
@@ -50,12 +58,17 @@ public class DoctorOperationsController {
     return p;
   }
 
+  /**
+   * 获取指定患者在自己这里的历史就诊信息
+   * @param id 患者iD
+   */
   @GetMapping("/patients/{id}/history")
   public Map<String, Object> history(@PathVariable long id, HttpServletRequest request) {
     long doctor = doctor(request).doctor_id();
     patient(id, request);
     Map<String, Object> result = new LinkedHashMap<>();
     result.put(
+            //预约记录
         "appointments",
         jdbc.queryForList(
             "SELECT a.*,d.real_name doctor_name,dp.name department_name FROM appointment a JOIN"
@@ -64,6 +77,7 @@ public class DoctorOperationsController {
             id,
             doctor));
     result.put(
+            //就诊记录
         "visits",
         jdbc.queryForList(
             "SELECT * FROM medical_visit WHERE patient_id=? AND doctor_id=? ORDER BY created_at"
@@ -71,6 +85,7 @@ public class DoctorOperationsController {
             id,
             doctor));
     result.put(
+            //诊断记录
         "diagnoses",
         jdbc.queryForList(
             "SELECT dr.* FROM diagnosis_record dr JOIN medical_visit v ON v.id=dr.visit_id WHERE"
@@ -78,6 +93,7 @@ public class DoctorOperationsController {
             id,
             doctor));
     result.put(
+            //处方记录
         "prescriptions",
         jdbc.queryForList(
             "SELECT p.* FROM prescription p JOIN medical_visit v ON v.id=p.visit_id WHERE"
@@ -87,6 +103,11 @@ public class DoctorOperationsController {
     return result;
   }
 
+  /**
+   * 医生修改指定时间段内容
+   * @param slotId 时间段ID
+   * @param body 修改信息
+   */
   @PutMapping("/slots/{slotId}")
   @Transactional(rollbackFor = Exception.class)
   public Map<String, Object> updateSlot(
@@ -99,10 +120,13 @@ public class DoctorOperationsController {
             "SELECT s.*,ds.doctor_id,ds.start_time schedule_start,ds.end_time schedule_end FROM"
                 + " schedule_slot s JOIN doctor_schedule ds ON ds.id=s.schedule_id WHERE s.id=?",
             slotId);
+
     if (slot == null || ((Number) slot.get("doctor_id")).longValue() != d.doctor_id())
       throw new UserRegistrationException(404, "时间段不存在或不属于当前医生");
+
     if (((Number) slot.get("status")).intValue() == 1)
       throw new UserRegistrationException(409, "已预约时间段不能修改");
+//时间段验证
     LocalTime start = LocalTime.parse(String.valueOf(body.get("start_time"))),
         end = LocalTime.parse(String.valueOf(body.get("end_time")));
     int no = Integer.parseInt(String.valueOf(body.get("slot_no")));
@@ -110,6 +134,7 @@ public class DoctorOperationsController {
         se = (LocalTime) slot.get("schedule_end");
     if (!start.isBefore(end) || start.isBefore(ss) || end.isAfter(se))
       throw new UserRegistrationException(422, "时间段不在排班范围内");
+//序号/时间冲突验证
     if (jdbc.queryForObject(
             "SELECT COUNT(*) FROM schedule_slot WHERE schedule_id=? AND id<>? AND (slot_no=? OR"
                 + " (start_time < ? AND end_time > ?))",
@@ -120,6 +145,7 @@ public class DoctorOperationsController {
             end,
             start)
         > 0) throw new UserRegistrationException(409, "时间段序号或时间范围冲突");
+
     jdbc.update(
         "UPDATE schedule_slot SET slot_no=?,start_time=?,end_time=? WHERE id=?",
         no,
@@ -130,6 +156,10 @@ public class DoctorOperationsController {
     return one("SELECT * FROM schedule_slot WHERE id=?", slotId);
   }
 
+  /**
+   * 删除指定时间段
+   * @param slotId 时间段ID
+   */
   @DeleteMapping("/slots/{slotId}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   @Transactional(rollbackFor = Exception.class)
@@ -142,6 +172,7 @@ public class DoctorOperationsController {
             slotId);
     if (slot == null || ((Number) slot.get("doctor_id")).longValue() != d.doctor_id())
       throw new UserRegistrationException(404, "时间段不存在或不属于当前医生");
+    //可删性验证
     if (((Number) slot.get("status")).intValue() != 0
         || jdbc.queryForObject(
                 "SELECT COUNT(*) FROM appointment WHERE slot_id=? AND status IN (1,2,3,4)",
@@ -152,6 +183,9 @@ public class DoctorOperationsController {
     log(d.user_id(), "DELETE_SLOT", "schedule_slot", slotId, "医生删除时间段", request);
   }
 
+  /**
+   * 根据请求体验证身份
+   */
   private AuthenticatedUser doctor(HttpServletRequest r) {
     AuthenticatedUser u = SessionAuth.require(r);
     if (u.doctor_id() == null
@@ -171,6 +205,9 @@ public class DoctorOperationsController {
     return m;
   }
 
+  /**
+   * 统一日志方法
+   */
   private void log(
       long uid, String type, String target, long id, String desc, HttpServletRequest r) {
     jdbc.update(

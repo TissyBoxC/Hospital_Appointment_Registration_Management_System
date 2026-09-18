@@ -16,16 +16,28 @@ public class PaymentController {
     this.service = service;
   }
 
+  /**
+   * 根据预约ID支付
+   * @param appointmentId 预约ID
+   */
   @PostMapping("/patient/appointments/{appointmentId}/pay")
   public java.util.Map<String, Object> pay(@PathVariable long appointmentId, HttpServletRequest r) {
     return service.pay(appointmentId, r);
   }
 
+  /**
+   * 查询支付记录
+   * @param id 支付订单号
+   */
   @GetMapping("/patient/payments/{id}")
   public java.util.Map<String, Object> get(@PathVariable long id, HttpServletRequest r) {
     return service.get(id, r);
   }
 
+  /**
+   * 退款接口
+   * @param body 退款请求体
+   */
   @PostMapping("/patient/payments/{id}/refund")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void refund(
@@ -40,6 +52,9 @@ public class PaymentController {
         id, r, body == null ? "患者申请退款" : String.valueOf(body.getOrDefault("reason", "患者申请退款")));
   }
 
+  /**
+   * 管理员退款接口
+   */
   @PostMapping("/admin/payments/{id}/refund")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void adminRefund(

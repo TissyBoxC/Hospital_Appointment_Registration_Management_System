@@ -16,6 +16,11 @@ public class PermissionAuthorizationService {
     this.jdbcTemplate = jdbcTemplate;
   }
 
+  /**
+   * 查询角色有什么权限
+   * @param userId 用户ID
+   * @param permissionCode 权限ID
+   */
   public boolean hasPermission(long userId, String permissionCode) {
     Long count =
         jdbcTemplate.queryForObject(
@@ -35,7 +40,11 @@ public class PermissionAuthorizationService {
     return count != null && count > 0;
   }
 
+  /**
+   * 查看角色是否拥有这个权限
+   */
   public void requirePermission(HttpServletRequest request, String permissionCode) {
+    //从Session读取角色
     AuthenticatedUser user = SessionAuth.require(request);
     if (user.role_codes().stream().anyMatch("ADMIN"::equalsIgnoreCase)) {
       return;

@@ -5,6 +5,11 @@ public class SessionAuthenticationException extends RuntimeException {
 
   private final int code;
 
+  /**
+   * 会话权限校验失败
+   * @param code 错误码
+   * @param message 错误信息
+   */
   public SessionAuthenticationException(int code, String message) {
     super(message);
     this.code = code;

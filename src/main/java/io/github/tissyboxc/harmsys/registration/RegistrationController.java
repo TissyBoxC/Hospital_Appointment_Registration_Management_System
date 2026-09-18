@@ -20,11 +20,18 @@ public class RegistrationController {
     this.appointmentService = appointmentService;
   }
 
+  /**
+   * 查询预约信息
+   */
   @GetMapping("/appointments")
   public List<Map<String, Object>> appointments(HttpServletRequest request) {
     return appointmentService.registrationList(request);
   }
 
+  /**
+   * 分页查询预约信息
+   * @param status 状态
+   */
   @GetMapping("/appointments/page")
   public Map<String, Object> appointmentsPage(
       @RequestParam(defaultValue = "1") int page,
@@ -34,11 +41,18 @@ public class RegistrationController {
     return appointmentService.registrationPage(request, page, page_size, status);
   }
 
+  /**
+   * 查询预约队列
+   */
   @GetMapping("/queue")
   public List<Map<String, Object>> queue(HttpServletRequest request) {
     return appointmentService.queue(request);
   }
 
+  /**
+   * 根据预约订单进行签到
+   * @param id 预约ID
+   */
   @PostMapping("/appointments/{id}/check-in")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void checkIn(@PathVariable long id, HttpServletRequest request) {
@@ -47,6 +61,10 @@ public class RegistrationController {
         id, null, user.user_id(), "REGISTRATION_CHECK_IN", request.getRemoteAddr());
   }
 
+  /**
+   * 根据预约ID进行取消订单
+   * @param body 取消请求体,包含可选原因
+   */
   @PostMapping("/appointments/{id}/cancel")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void cancel(

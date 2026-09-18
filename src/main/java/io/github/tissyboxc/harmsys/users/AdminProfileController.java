@@ -1,5 +1,6 @@
 package io.github.tissyboxc.harmsys.users;
 
+import io.github.tissyboxc.harmsys.users.sessions.AuthenticatedUser;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
@@ -16,13 +17,20 @@ public class AdminProfileController {
     this.jdbc = jdbc;
   }
 
-  private io.github.tissyboxc.harmsys.users.sessions.AuthenticatedUser check(HttpServletRequest r) {
+  /**
+   * 验证已登录且管理员身份
+   */
+  private AuthenticatedUser check(HttpServletRequest r) {
     var u = io.github.tissyboxc.harmsys.users.sessions.SessionAuth.require(r);
     if (u.role_codes().stream().noneMatch(x -> x.equalsIgnoreCase("ADMIN")))
       throw new SessionAuthenticationException(403, "只有管理员可以执行该操作");
     return u;
   }
 
+  /**
+   * 根据患者ID获取信息
+   * @param id 患者ID
+   */
   @GetMapping("/patients/{id}")
   public Object getPatient(@PathVariable long id, HttpServletRequest r) {
     check(r);
@@ -33,6 +41,11 @@ public class AdminProfileController {
     }
   }
 
+  /**
+   * 根据患者ID修改信息
+   * @param id 患者ID
+   * @param x 新信息请求体
+   */
   @PutMapping("/patients/{id}")
   public Object patient(
       @PathVariable long id, @Valid @RequestBody PatientUpdate x, HttpServletRequest r) {
@@ -59,6 +72,10 @@ public class AdminProfileController {
     return jdbc.queryForMap("SELECT * FROM patient WHERE id=?", id);
   }
 
+  /**
+   * 根据医生ID获取医生信息
+   * @param id 医生ID
+   */
   @GetMapping("/doctors/{id}")
   public Object getDoctor(@PathVariable long id, HttpServletRequest r) {
     check(r);
@@ -69,6 +86,11 @@ public class AdminProfileController {
     }
   }
 
+  /**
+   * 根据医生ID修改医生信息
+   * @param id 医生ID
+   * @param x 新信息请求体
+   */
   @PutMapping("/doctors/{id}")
   public Object doctor(
       @PathVariable long id, @Valid @RequestBody DoctorUpdate x, HttpServletRequest r) {
@@ -98,6 +120,11 @@ public class AdminProfileController {
     return jdbc.queryForMap("SELECT * FROM doctor WHERE id=?", id);
   }
 
+  /**
+   * 修改指定医生状态
+   * @param id 医生ID
+   * @param x 新状态码
+   */
   @PutMapping("/doctors/{id}/status")
   public void doctorStatus(
       @PathVariable long id, @Valid @RequestBody Status x, HttpServletRequest r) {

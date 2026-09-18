@@ -19,6 +19,10 @@ public class UserAccountService {
     this.passwordEncoder = passwordEncoder;
   }
 
+  /**
+   * 患者自助注册
+   * @param request 注册信息
+   */
   @Transactional(rollbackFor = Exception.class)
   public RegisterResult PatientReg(PatientRegisterRequest request) {
     String username = request.username().trim().toLowerCase(Locale.ROOT);

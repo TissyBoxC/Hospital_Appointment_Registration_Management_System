@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/admin")
-/** 管理员补充管理接口：用户、角色、权限、统计和高风险预约操作。 */
+
 public class AdminOperationsController {
   private final JdbcTemplate jdbc;
   private final PasswordEncoder passwordEncoder;
@@ -21,6 +21,11 @@ public class AdminOperationsController {
     this.passwordEncoder = passwordEncoder;
   }
 
+  /**
+   * 管理员修改用户信息
+   * @param id 用户ID
+   * @param body 请求体
+   */
   @PutMapping("/users/{id}")
   public Map<String, Object> updateUser(
       @PathVariable long id, @RequestBody Map<String, Object> body, HttpServletRequest request) {
@@ -52,6 +57,10 @@ public class AdminOperationsController {
         id);
   }
 
+  /**
+   * 管理员删除用户
+   * @param id 用户ID
+   */
   @DeleteMapping("/users/{id}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void deleteUser(@PathVariable long id, HttpServletRequest request) {
@@ -75,6 +84,11 @@ public class AdminOperationsController {
         "SELECT id user_id,username,user_type,status,deleted FROM sys_user WHERE id=?", id);
   }
 
+  /**
+   * 管理员修改用户角色
+   * @param userId 用户iD
+   * @param body 包含角色的请求体
+   */
   @PostMapping("/users/{userId}/roles")
   public Map<String, Object> assignRole(
       @PathVariable long userId,
@@ -107,6 +121,11 @@ public class AdminOperationsController {
         roleId);
   }
 
+  /**
+   * 管理员删除指定用户的指定角色
+   * @param userId 用户ID
+   * @param roleId 角色
+   */
   @DeleteMapping("/users/{userId}/roles/{roleId}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void removeRole(
@@ -117,6 +136,11 @@ public class AdminOperationsController {
     log(operator.user_id(), "ADMIN_REMOVE_ROLE", "sys_user", userId, "管理员移除角色", request);
   }
 
+  /**
+   * 角色权限修改
+   * @param roleId 角色
+   * @param body 权限请求体
+   */
   @PostMapping("/roles/{roleId}/permissions")
   public Map<String, Object> assignPermission(
       @PathVariable long roleId,
@@ -153,6 +177,11 @@ public class AdminOperationsController {
         permissionId);
   }
 
+  /**
+   * 管理员删除角色的角色权限
+   * @param roleId 角色
+   * @param permissionId 该角色拥有的权限
+   */
   @DeleteMapping("/roles/{roleId}/permissions/{permissionId}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void removePermission(
@@ -166,6 +195,10 @@ public class AdminOperationsController {
     log(operator.user_id(), "ADMIN_REMOVE_PERMISSION", "sys_role", roleId, "管理员移除角色权限", request);
   }
 
+  /**
+   * 管理员创建新角色
+   * @param body 包含角色ID的请求体
+   */
   @PostMapping("/roles")
   @ResponseStatus(HttpStatus.CREATED)
   public Map<String, Object> createRole(
@@ -182,12 +215,18 @@ public class AdminOperationsController {
     return jdbc.queryForMap("SELECT * FROM sys_role WHERE id=?", id);
   }
 
+  /**
+   * 获取所有角色
+   */
   @GetMapping("/roles")
   public List<Map<String, Object>> roles(HttpServletRequest request) {
     admin(request);
     return jdbc.queryForList("SELECT * FROM sys_role ORDER BY id");
   }
 
+  /**
+   * 获取某角色的权限
+   */
   @GetMapping("/roles/{id}/permissions")
   public List<Map<String, Object>> rolePermissions(
       @PathVariable long id, HttpServletRequest request) {
@@ -198,6 +237,9 @@ public class AdminOperationsController {
         id);
   }
 
+  /**
+   * 修改角色信息
+   */
   @PutMapping("/roles/{id}")
   public Map<String, Object> updateRole(
       @PathVariable long id, @RequestBody Map<String, Object> body, HttpServletRequest request) {
@@ -210,6 +252,9 @@ public class AdminOperationsController {
     return jdbc.queryForMap("SELECT * FROM sys_role WHERE id=?", id);
   }
 
+  /**
+   * 删除角色
+   */
   @DeleteMapping("/roles/{id}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void deleteRole(@PathVariable long id, HttpServletRequest request) {
@@ -219,6 +264,9 @@ public class AdminOperationsController {
     log(operator.user_id(), "ADMIN_DISABLE_ROLE", "sys_role", id, "管理员停用角色", request);
   }
 
+  /**
+   * 新增权限
+   */
   @PostMapping("/permissions")
   @ResponseStatus(HttpStatus.CREATED)
   public Map<String, Object> createPermission(
@@ -237,12 +285,18 @@ public class AdminOperationsController {
     return jdbc.queryForMap("SELECT * FROM sys_permission WHERE id=?", id);
   }
 
+  /**
+   * 获取权限列表
+   */
   @GetMapping("/permissions")
   public List<Map<String, Object>> permissions(HttpServletRequest request) {
     admin(request);
     return jdbc.queryForList("SELECT * FROM sys_permission ORDER BY id");
   }
 
+  /**
+   * 修改某权限内容
+   */
   @PutMapping("/permissions/{id}")
   public Map<String, Object> updatePermission(
       @PathVariable long id, @RequestBody Map<String, Object> body, HttpServletRequest request) {
@@ -255,6 +309,9 @@ public class AdminOperationsController {
     return jdbc.queryForMap("SELECT * FROM sys_permission WHERE id=?", id);
   }
 
+  /**
+   * 删除某权限
+   */
   @DeleteMapping("/permissions/{id}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void deletePermission(@PathVariable long id, HttpServletRequest request) {
@@ -266,6 +323,10 @@ public class AdminOperationsController {
     log(operator.user_id(), "ADMIN_DELETE_PERMISSION", "sys_permission", id, "管理员删除权限", request);
   }
 
+  /**
+   * 获取
+   * 有效用户数/有效患者数/在岗医生数/启用科室数/今日预约数/今日完成就诊数/累计成功支付金额
+   */
   @GetMapping("/statistics")
   public Map<String, Object> statistics(HttpServletRequest request) {
     admin(request);
@@ -300,6 +361,9 @@ public class AdminOperationsController {
     return result;
   }
 
+  /**
+   * 验证已登录且管理员身份
+   */
   private AuthenticatedUser admin(HttpServletRequest request) {
     AuthenticatedUser user = SessionAuth.require(request);
     if (user.role_codes().stream().noneMatch(x -> x.equalsIgnoreCase("ADMIN")))
@@ -307,6 +371,9 @@ public class AdminOperationsController {
     return user;
   }
 
+  /**
+   * 统一日志逻辑
+   */
   private void log(
       long userId,
       String type,
@@ -326,22 +393,45 @@ public class AdminOperationsController {
         r.getRemoteAddr());
   }
 
+  /**
+   * Json字段转String
+   * @param b json字段
+   * @param k 指定字段
+   * @return 指定字段中的内容，String类型
+   */
   private String text(Map<String, Object> b, String k) {
     Object v = b.get(k);
     return v == null ? null : String.valueOf(v);
   }
 
+  /**
+   * 从JSON中获取字段内容
+   * @param b JSON内容
+   * @param k 指定字段
+   */
   private String required(Map<String, Object> b, String k) {
     String v = text(b, k);
     if (v == null || v.isBlank()) throw new UserRegistrationException(422, k + " 不能为空");
     return v.trim();
   }
 
+  /**
+   * 从JSON字段中获取指定字段的INT值
+   * @param b JSON内容
+   * @param k 指定字段
+   * @return 指定字段中的内容,INT类型
+   */
   private Integer integer(Map<String, Object> b, String k) {
     Object v = b.get(k);
     return v == null ? null : Integer.valueOf(String.valueOf(v));
   }
 
+  /**
+   * 从JSON字段中获取字段内容
+   * @param b JSON内容
+   * @param k 指定字段
+   * @param d 需要匹配的内容
+   */
   private Integer integer(Map<String, Object> b, String k, int d) {
     Integer v = integer(b, k);
     return v == null ? d : v;

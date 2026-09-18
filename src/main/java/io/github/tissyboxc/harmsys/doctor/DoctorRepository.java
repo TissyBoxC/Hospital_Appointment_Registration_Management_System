@@ -21,6 +21,10 @@ public class DoctorRepository {
     this.jdbcTemplate = jdbcTemplate;
   }
 
+  /**
+   * 根据医生ID查询个人资料
+   * @param doctorId 医生ID
+   */
   public Optional<DoctorProfileResult> findProfile(long doctorId) {
     return jdbcTemplate
         .query(
@@ -45,6 +49,11 @@ public class DoctorRepository {
         .findFirst();
   }
 
+  /**
+   * 医生更新个人资料
+   * @param doctorId 医生ID
+   * @param r 修改请求体
+   */
   public void updateProfile(long doctorId, DoctorProfileUpdateRequest r) {
     jdbcTemplate.update(
         "UPDATE doctor SET"
@@ -59,6 +68,10 @@ public class DoctorRepository {
         doctorId);
   }
 
+  /**
+   * 查询医生的所属科室
+   * @param doctorId 医生ID
+   */
   public Optional<Long> findDoctorDepartment(long doctorId) {
     return jdbcTemplate
         .query(
@@ -69,10 +82,17 @@ public class DoctorRepository {
         .findFirst();
   }
 
+  /**
+   * 验证该医生状态
+   * @param doctorId 医生ID
+   */
   public boolean doctorEnabled(long doctorId) {
     return count("SELECT COUNT(*) FROM doctor WHERE id=? AND status=1 AND deleted=0", doctorId) > 0;
   }
 
+  /**
+   * 排班信息中的科室ID与医生本身所属科室ID校验
+   */
   public boolean departmentMatchesDoctor(long doctorId, long departmentId) {
     return count(
             "SELECT COUNT(*) FROM doctor WHERE id=? AND department_id=? AND status=1 AND deleted=0",
@@ -81,12 +101,21 @@ public class DoctorRepository {
         > 0;
   }
 
+  /**
+   * 验证该排班是否属于该医生
+   * @param scheduleId 排班ID
+   * @param doctorId 医生ID
+   */
   public boolean scheduleBelongsTo(long scheduleId, long doctorId) {
     return count(
             "SELECT COUNT(*) FROM doctor_schedule WHERE id=? AND doctor_id=?", scheduleId, doctorId)
         > 0;
   }
 
+  /**
+   * 根据ID查询排班信息
+   * @param id 排班ID
+   */
   public Optional<ScheduleResult> findSchedule(long id) {
     return jdbcTemplate
         .query(
@@ -99,6 +128,10 @@ public class DoctorRepository {
         .findFirst();
   }
 
+  /**
+   * 按医生ID查询对应排班信息
+   * @param doctorId 医生ID
+   */
   public List<ScheduleResult> findSchedules(long doctorId) {
     return jdbcTemplate.query(
         "SELECT"
@@ -108,6 +141,10 @@ public class DoctorRepository {
         doctorId);
   }
 
+  /**
+   * 管理员查询所有排班信息,包含所有状态
+   * @return
+   */
   public List<ScheduleResult> findAllSchedules() {
     return jdbcTemplate.query(
         "SELECT"
@@ -116,6 +153,11 @@ public class DoctorRepository {
         this::mapSchedule);
   }
 
+  /**
+   * 新建排班
+   * @param r 排班请求体,包含排班信息
+   * @return
+   */
   public long insertSchedule(ScheduleRequest r) {
     KeyHolder kh = new GeneratedKeyHolder();
     int rows =
@@ -143,6 +185,11 @@ public class DoctorRepository {
     return kh.getKey().longValue();
   }
 
+  /**
+   * 修改排班信息
+   * @param id 排班ID
+   * @param r 修改信息
+   */
   public void updateSchedule(long id, ScheduleRequest r) {
     if (jdbcTemplate.update(
             "UPDATE doctor_schedule SET"
@@ -160,11 +207,19 @@ public class DoctorRepository {
         != 1) throw new UserRegistrationException(409, "排班不存在，或已有预约不能修改");
   }
 
+  /**
+   * 删除指定排班
+   * @param id 排班ID
+   */
   public void deleteSchedule(long id) {
     if (jdbcTemplate.update("DELETE FROM doctor_schedule WHERE id=? AND booked_count=0", id) != 1)
       throw new IllegalStateException("已有预约的排班不可删除");
   }
 
+  /**
+   * 根据排班ID查询时间段
+   * @param scheduleId 排班ID
+   */
   public List<SlotResult> findSlots(long scheduleId) {
     return jdbcTemplate.query(
         "SELECT id,schedule_id,slot_no,start_time,end_time,status FROM schedule_slot WHERE"
@@ -173,6 +228,11 @@ public class DoctorRepository {
         scheduleId);
   }
 
+  /**
+   * 指定排班插入时间段
+   * @param scheduleId 排班ID
+   * @param r 请求体
+   */
   public long insertSlot(long scheduleId, SlotRequest r) {
     KeyHolder kh = new GeneratedKeyHolder();
     int rows =
@@ -194,6 +254,12 @@ public class DoctorRepository {
     return kh.getKey().longValue();
   }
 
+  /**
+   * 新时间段与已有排班的已有时间段重复校验
+   * @param scheduleId 排班ID
+   * @param start 开始时间
+   * @param end 结束时间
+   */
   public boolean slotOverlaps(long scheduleId, java.time.LocalTime start, java.time.LocalTime end) {
     return count(
             "SELECT COUNT(*) FROM schedule_slot WHERE schedule_id=? AND start_time < ? AND end_time"
@@ -204,6 +270,11 @@ public class DoctorRepository {
         > 0;
   }
 
+  /**
+   * 时间段序号重复校验
+   * @param scheduleId 排班ID
+   * @param slotNo 序号
+   */
   public boolean slotNumberExists(long scheduleId, int slotNo) {
     return count(
             "SELECT COUNT(*) FROM schedule_slot WHERE schedule_id=? AND slot_no=?",
@@ -212,11 +283,20 @@ public class DoctorRepository {
         > 0;
   }
 
+  /**
+   * 更新排班时间段状态
+   * @param slotId 时间段ID
+   * @param status 状态
+   */
   public void updateSlotStatus(long slotId, int status) {
     if (jdbcTemplate.update("UPDATE schedule_slot SET status=? WHERE id=?", status, slotId) != 1)
       throw new IllegalStateException("时间段不存在");
   }
 
+  /**
+   * 根据时间段ID查询时间段信息
+   * @param slotId 时间段ID
+   */
   public Optional<SlotResult> findSlot(long slotId) {
     return jdbcTemplate
         .query(
@@ -228,6 +308,15 @@ public class DoctorRepository {
         .findFirst();
   }
 
+  /**
+   * 统一日志逻辑
+   * @param userId 操作着ID
+   * @param type 类型
+   * @param target 目标
+   * @param id 目标ID
+   * @param description 描述
+   * @param ip 地址
+   */
   public void writeLog(
       long userId, String type, String target, Long id, String description, String ip) {
     jdbcTemplate.update(
@@ -247,6 +336,9 @@ public class DoctorRepository {
     return v == null ? 0 : v;
   }
 
+  /**
+   * 排班信息格式化为JAVA实体
+   */
   private ScheduleResult mapSchedule(java.sql.ResultSet rs, int n) throws java.sql.SQLException {
     return new ScheduleResult(
         rs.getLong("id"),
@@ -263,6 +355,9 @@ public class DoctorRepository {
         rs.getString("remark"));
   }
 
+  /**
+   * 时间段信息格式化为JAVA实体
+   */
   private SlotResult mapSlot(java.sql.ResultSet rs, int n) throws java.sql.SQLException {
     return new SlotResult(
         rs.getLong("id"),

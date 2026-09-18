@@ -18,6 +18,16 @@ public class OperationLogController {
     this.jdbc = jdbc;
   }
 
+  /**
+   *
+   * @param user_id 用户ID
+   * @param operation_type 操作类型
+   * @param target_type 目标类型
+   * @param target_id 目标数据ID
+   * @param start_time 开始操作时间
+   * @param end_time 结束时间
+   * @param limit 最大数量
+   */
   @GetMapping
   public List<Map<String, Object>> list(
       @RequestParam(required = false) Long user_id,
@@ -31,22 +41,27 @@ public class OperationLogController {
     checkAdmin(request);
     StringBuilder sql = new StringBuilder("SELECT * FROM operation_log WHERE 1=1");
     List<Object> args = new ArrayList<>();
+    //按用户筛选
     if (user_id != null) {
       sql.append(" AND user_id=?");
       args.add(user_id);
     }
+    //按操作类型筛选
     if (operation_type != null && !operation_type.isBlank()) {
       sql.append(" AND operation_type=?");
       args.add(operation_type.trim());
     }
+    //按目标类型筛选
     if (target_type != null && !target_type.isBlank()) {
       sql.append(" AND target_type=?");
       args.add(target_type.trim());
     }
+    //按目标数据ID筛选
     if (target_id != null) {
       sql.append(" AND target_id=?");
       args.add(target_id);
     }
+    //按时间筛选
     if (start_time != null && !start_time.isBlank()) {
       sql.append(" AND created_at>=?");
       args.add(start_time);
@@ -55,10 +70,14 @@ public class OperationLogController {
       sql.append(" AND created_at<=?");
       args.add(end_time);
     }
+    //限量
     sql.append(" ORDER BY id DESC LIMIT ").append(Math.max(1, Math.min(limit, 500)));
     return jdbc.queryForList(sql.toString(), args.toArray());
   }
 
+  /**
+   * 按ID查询单条日志
+   */
   @GetMapping("/{id}")
   public Map<String, Object> get(@PathVariable long id, HttpServletRequest request) {
     checkAdmin(request);
@@ -68,6 +87,9 @@ public class OperationLogController {
     return result;
   }
 
+  /**
+   * 分页查询
+   */
   @GetMapping("/paged")
   public Map<String, Object> paged(
       @RequestParam(defaultValue = "1") int page,
@@ -89,12 +111,18 @@ public class OperationLogController {
     return m;
   }
 
+  /**
+   * 验证是否是管理员
+   */
   private void checkAdmin(HttpServletRequest request) {
     var u = SessionAuth.require(request);
     if (u.role_codes().stream().noneMatch(x -> x.equalsIgnoreCase("ADMIN")))
       throw new SessionAuthenticationException(403, "只有管理员可以查询操作日志");
   }
 
+  /**
+   * 将原数据库查询信息格式化
+   */
   private Map<String, Object> row(java.sql.ResultSet rs) throws java.sql.SQLException {
     Map<String, Object> m = new LinkedHashMap<>();
     var md = rs.getMetaData();

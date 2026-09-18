@@ -14,7 +14,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-/** 基于内存窗口的基础限流；单节点部署适用，多节点应替换为 Redis 限流。 */
+/** 基于内存窗口的基础限流； */
 @Component
 /** 按客户端来源限制接口请求频率。 */
 public class ApiRateLimitFilter extends OncePerRequestFilter {
@@ -23,6 +23,11 @@ public class ApiRateLimitFilter extends OncePerRequestFilter {
   @Value("${harms.rate-limit.per-minute:120}")
   private int limitPerMinute;
 
+  /**
+   * 跳过非API,OPTIONS和健康检查,不做拦截
+   * @param request current HTTP request
+   * @return
+   */
   @Override
   protected boolean shouldNotFilter(HttpServletRequest request) {
     String path = request.getRequestURI();
@@ -39,12 +44,15 @@ public class ApiRateLimitFilter extends OncePerRequestFilter {
       HttpServletRequest request, HttpServletResponse response, FilterChain chain)
       throws ServletException, IOException {
     String key = key(request);
+    /**
+     *一分钟限流120
+    **/
     Window window =
         windows.compute(
             key,
             (ignored, old) -> {
-              long now = Instant.now().getEpochSecond();
-              if (old == null || now - old.startedAt >= 60)
+              long now = Instant.now().getEpochSecond(); //当前时间距离1970 0101 0000的时间
+              if (old == null || now - old.startedAt >= 60) //如果旧计数为空,即这是第一次请求,或者这次请求距上次请求小于60秒,count++,否则开新窗口重新计数
                 return new Window(now, new AtomicInteger(1));
               old.count.incrementAndGet();
               return old;

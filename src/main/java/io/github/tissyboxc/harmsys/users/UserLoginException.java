@@ -5,6 +5,11 @@ public class UserLoginException extends RuntimeException {
 
   private final int code;
 
+  /**
+   * 登陆异常
+   * @param code 错误码
+   * @param message 错误信息
+   */
   public UserLoginException(int code, String message) {
     super(message);
     this.code = code;

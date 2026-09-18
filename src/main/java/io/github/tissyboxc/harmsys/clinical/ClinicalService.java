@@ -24,6 +24,11 @@ public class ClinicalService {
     this.jdbc = jdbc;
   }
 
+  /**
+   * 查询该医生的被预约信息
+   * @param r
+   * @return
+   */
   public List<Map<String, Object>> doctorAppointments(HttpServletRequest r) {
     long doctor = requireDoctor(r).doctor_id();
     return jdbc.queryForList(
@@ -34,6 +39,9 @@ public class ClinicalService {
         doctor);
   }
 
+  /**
+   * 医生分页查询患者信息
+   */
   public Map<String, Object> doctorAppointmentsPage(
       HttpServletRequest r, int page, int size, Integer status) {
     long doctor = requireDoctor(r).doctor_id();
@@ -68,6 +76,9 @@ public class ClinicalService {
     return out;
   }
 
+  /**
+   * 按ID查询预约信息
+   */
   public Map<String, Object> doctorAppointment(long id, HttpServletRequest r) {
     long doctor = requireDoctor(r).doctor_id();
     Map<String, Object> m =
@@ -82,25 +93,33 @@ public class ClinicalService {
     return m;
   }
 
+  /**
+   *医生修改患者预约信息
+   */
   @Transactional(rollbackFor = Exception.class)
   public Map<String, Object> updateDoctorAppointment(
       long appointmentId, DoctorAppointmentUpdateRequest x, HttpServletRequest r) {
+    //验证医生身份
     AuthenticatedUser doctor = requireDoctor(r);
+    //获取当前预约信息
     Map<String, Object> appointment =
         lock(
             "SELECT * FROM appointment WHERE id=? AND doctor_id=? FOR UPDATE",
             appointmentId,
             doctor.doctor_id());
     if (appointment == null) throw new UserRegistrationException(404, "预约不存在或不属于当前医生");
+    //寻找科室
     if (jdbc.queryForObject(
             "SELECT COUNT(*) FROM department WHERE id=? AND status=1 AND deleted=0",
             Long.class,
             x.department_id())
         == 0) throw new UserRegistrationException(404, "科室不存在或已停用");
+    //修改患者姓名
     long patientId = ((Number) appointment.get("patient_id")).longValue();
     if (jdbc.update(
             "UPDATE patient SET real_name=? WHERE id=? AND deleted=0", x.patient_name(), patientId)
         != 1) throw new UserRegistrationException(404, "患者资料不存在");
+    //更新预约信息
     jdbc.update(
         "UPDATE appointment SET"
             + " appointment_date=?,period=?,department_id=?,queue_no=?,status=?,remark=? WHERE"
@@ -129,6 +148,10 @@ public class ClinicalService {
     return doctorAppointment(appointmentId, r);
   }
 
+  /**
+   * 开始就诊逻辑
+   * @param appointmentId 预约ID
+   */
   @Transactional(rollbackFor = Exception.class)
   public Map<String, Object> startVisit(long appointmentId, HttpServletRequest r) {
     AuthenticatedUser doctor = requireDoctor(r);
@@ -138,10 +161,12 @@ public class ClinicalService {
             appointmentId,
             doctor.doctor_id());
     if (a == null) throw new UserRegistrationException(404, "预约不存在或不属于当前医生");
+    //校验是否签到
     if (((Number) a.get("status")).intValue() != 3)
       throw new UserRegistrationException(409, "只有已签到预约可以开始就诊");
     Map<String, Object> v =
         one("SELECT * FROM medical_visit WHERE appointment_id=?", appointmentId);
+    //如果不存在就诊记录,则新建
     if (v == null) {
       String no =
           "V"
@@ -155,12 +180,15 @@ public class ClinicalService {
           a.get("patient_id"),
           a.get("doctor_id"),
           no);
-    } else {
+    }
+    //已有就诊记录:更新
+    else {
       jdbc.update(
           "UPDATE medical_visit SET"
               + " visit_start_at=COALESCE(visit_start_at,CURRENT_TIMESTAMP),status=2 WHERE id=?",
           v.get("id"));
     }
+    //更新预约状态
     jdbc.update("UPDATE appointment SET status=4 WHERE id=?", appointmentId);
     log(
         doctor.user_id(),
@@ -172,6 +200,9 @@ public class ClinicalService {
     return visitByAppointment(appointmentId);
   }
 
+  /**
+   * 完成就诊逻辑
+   */
   @Transactional(rollbackFor = Exception.class)
   public Map<String, Object> completeVisit(long appointmentId, HttpServletRequest r) {
     AuthenticatedUser doctor = requireDoctor(r);
@@ -199,6 +230,9 @@ public class ClinicalService {
     return visitByAppointment(appointmentId);
   }
 
+  /**
+   * 医生查看自己的就诊记录列表
+   */
   public List<Map<String, Object>> doctorVisits(HttpServletRequest r) {
     long doctor = requireDoctor(r).doctor_id();
     return jdbc.queryForList(
@@ -208,6 +242,9 @@ public class ClinicalService {
         doctor);
   }
 
+  /**
+   * 患者查看自己的就诊记录列表
+   */
   public List<Map<String, Object>> patientVisits(HttpServletRequest r) {
     long patient = requirePatient(r).patient_id();
     return jdbc.queryForList(
@@ -217,14 +254,18 @@ public class ClinicalService {
         patient);
   }
 
-  public Map<String, Object> getVisit(long id, HttpServletRequest r) {
+  /**
+   * 查看某一条就诊记录信息
+   * @param visit_id 就诊记录iD
+   */
+  public Map<String, Object> getVisit(long visit_id, HttpServletRequest r) {
     AuthenticatedUser u = SessionAuth.require(r);
     Map<String, Object> v =
         one(
             "SELECT v.*,p.real_name patient_name,d.real_name doctor_name,a.appointment_no FROM"
                 + " medical_visit v JOIN patient p ON p.id=v.patient_id JOIN doctor d ON"
                 + " d.id=v.doctor_id JOIN appointment a ON a.id=v.appointment_id WHERE v.id=?",
-            id);
+                visit_id);
     if (v == null) throw new UserRegistrationException(404, "就诊记录不存在");
     if (!isAdmin(u)
         && !Objects.equals(u.doctor_id(), ((Number) v.get("doctor_id")).longValue())
@@ -233,10 +274,13 @@ public class ClinicalService {
     return v;
   }
 
+  /**
+   * 医生修改某一条就诊记录的信息
+   */
   @Transactional(rollbackFor = Exception.class)
-  public Map<String, Object> updateVisit(long id, VisitUpdateRequest x, HttpServletRequest r) {
+  public Map<String, Object> updateVisit(long visit_id, VisitUpdateRequest x, HttpServletRequest r) {
     AuthenticatedUser d = requireDoctor(r);
-    Map<String, Object> v = doctorVisit(id, d.doctor_id());
+    Map<String, Object> v = doctorVisit(visit_id, d.doctor_id());
     if (v == null) throw new UserRegistrationException(404, "就诊记录不存在或不属于当前医生");
     if (((Number) v.get("status")).intValue() == 3)
       throw new UserRegistrationException(409, "已完成的就诊记录不能修改");
@@ -245,17 +289,23 @@ public class ClinicalService {
         x.chief_complaint(),
         x.present_illness(),
         x.medical_advice(),
-        id);
-    log(d.user_id(), "UPDATE_VISIT", "medical_visit", id, "医生修改就诊记录", r.getRemoteAddr());
-    return getVisit(id, r);
+            visit_id);
+    log(d.user_id(), "UPDATE_VISIT", "medical_visit", visit_id, "医生修改就诊记录", r.getRemoteAddr());
+    return getVisit(visit_id, r);
   }
 
+  /**
+   * 查看某次就诊下的全部诊断
+   */
   public List<Map<String, Object>> diagnoses(long visitId, HttpServletRequest r) {
     doctorVisitOrPatient(visitId, r);
     return jdbc.queryForList(
         "SELECT * FROM diagnosis_record WHERE visit_id=? ORDER BY id", visitId);
   }
 
+  /**
+   * 给某次就诊创建新的诊断
+   */
   @Transactional(rollbackFor = Exception.class)
   public Map<String, Object> createDiagnosis(
       long visitId, DiagnosisRequest x, HttpServletRequest r) {
@@ -291,6 +341,9 @@ public class ClinicalService {
     return one("SELECT * FROM diagnosis_record WHERE id=?", h.getKey().longValue());
   }
 
+  /**
+   * 修改一条已有的诊断
+   */
   @Transactional(rollbackFor = Exception.class)
   public Map<String, Object> updateDiagnosis(long id, DiagnosisRequest x, HttpServletRequest r) {
     AuthenticatedUser d = requireDoctor(r);
@@ -313,22 +366,32 @@ public class ClinicalService {
     return one("SELECT * FROM diagnosis_record WHERE id=?", id);
   }
 
+  /**
+   * 删除诊断信息
+   * @param diagnosis_id 诊断记录ID
+   */
   @Transactional(rollbackFor = Exception.class)
-  public void deleteDiagnosis(long id, HttpServletRequest r) {
+  public void deleteDiagnosis(long diagnosis_id, HttpServletRequest r) {
     AuthenticatedUser d = requireDoctor(r);
     if (one(
             "SELECT dr.id FROM diagnosis_record dr JOIN medical_visit v ON v.id=dr.visit_id WHERE"
                 + " dr.id=? AND v.doctor_id=?",
-            id,
+            diagnosis_id,
             d.doctor_id())
         == null) throw new UserRegistrationException(404, "诊断不存在或不属于当前医生");
-    jdbc.update("DELETE FROM diagnosis_record WHERE id=?", id);
-    log(d.user_id(), "DELETE_DIAGNOSIS", "diagnosis_record", id, "医生删除诊断", r.getRemoteAddr());
+    jdbc.update("DELETE FROM diagnosis_record WHERE id=?", diagnosis_id);
+    log(d.user_id(), "DELETE_DIAGNOSIS", "diagnosis_record", diagnosis_id, "医生删除诊断", r.getRemoteAddr());
   }
 
+  /**
+   * 创建处方
+   * @param x 就诊记录
+   * @param request 网络信息
+   * @return 新建处方
+   */
   @Transactional(rollbackFor = Exception.class)
-  public Map<String, Object> createPrescription(PrescriptionRequest x, HttpServletRequest r) {
-    AuthenticatedUser d = requireDoctor(r);
+  public Map<String, Object> createPrescription(PrescriptionRequest x, HttpServletRequest request) {
+    AuthenticatedUser d = requireDoctor(request);
     if (doctorVisit(x.visit_id(), d.doctor_id()) == null)
       throw new UserRegistrationException(404, "就诊记录不存在或不属于当前医生");
     String no =
@@ -357,14 +420,19 @@ public class ClinicalService {
         "prescription",
         h.getKey().longValue(),
         "医生创建处方",
-        r.getRemoteAddr());
-    return prescription(h.getKey().longValue(), r);
+        request.getRemoteAddr());
+    return prescription(h.getKey().longValue(), request);
   }
 
-  public Map<String, Object> prescription(long id, HttpServletRequest r) {
-    Map<String, Object> p = one("SELECT * FROM prescription WHERE id=?", id);
+  /**
+   * 查询处方和处方明细
+   * @param prescriptionid 处方ID
+   * @return 处方和处方明细
+   */
+  public Map<String, Object> prescription(long prescriptionid, HttpServletRequest request) {
+    Map<String, Object> p = one("SELECT * FROM prescription WHERE id=?", prescriptionid);
     if (p == null) throw new UserRegistrationException(404, "处方不存在");
-    AuthenticatedUser u = SessionAuth.require(r);
+    AuthenticatedUser u = SessionAuth.require(request);
     Map<String, Object> v =
         one("SELECT patient_id,doctor_id FROM medical_visit WHERE id=?", p.get("visit_id"));
     if (!isAdmin(u)
@@ -374,30 +442,41 @@ public class ClinicalService {
     p.put(
         "items",
         jdbc.queryForList(
-            "SELECT * FROM prescription_item WHERE prescription_id=? ORDER BY id", id));
+            "SELECT * FROM prescription_item WHERE prescription_id=? ORDER BY id", prescriptionid));
     return p;
   }
 
+  /**
+   * 修改处方状态
+   * @param prescriptionId 处方ID
+   * @param status 状态
+   * @return 处方信息
+   */
   @Transactional(rollbackFor = Exception.class)
-  public Map<String, Object> updatePrescriptionStatus(long id, int status, HttpServletRequest r) {
+  public Map<String, Object> updatePrescriptionStatus(long prescriptionId, int status, HttpServletRequest r) {
     AuthenticatedUser d = requireDoctor(r);
     Map<String, Object> p =
-        one("SELECT * FROM prescription WHERE id=? AND doctor_id=?", id, d.doctor_id());
+        one("SELECT * FROM prescription WHERE id=? AND doctor_id=?", prescriptionId, d.doctor_id());
     if (p == null) throw new UserRegistrationException(404, "处方不存在或不属于当前医生");
     if (status < 1 || status > 3) throw new UserRegistrationException(422, "处方状态只能为1、2、3");
     if (((Number) p.get("status")).intValue() == 3)
       throw new UserRegistrationException(409, "已取药处方不能修改");
-    jdbc.update("UPDATE prescription SET status=? WHERE id=?", status, id);
+    jdbc.update("UPDATE prescription SET status=? WHERE id=?", status, prescriptionId);
     log(
         d.user_id(),
         "UPDATE_PRESCRIPTION_STATUS",
         "prescription",
-        id,
+            prescriptionId,
         "医生修改处方状态",
         r.getRemoteAddr());
-    return prescription(id, r);
+    return prescription(prescriptionId, r);
   }
 
+  /**
+   *添加新处方
+   * @param prescriptionId 处方ID
+   * @return 处方明细
+   */
   @Transactional(rollbackFor = Exception.class)
   public Map<String, Object> addItem(
       long prescriptionId, PrescriptionItemRequest x, HttpServletRequest r) {
@@ -405,6 +484,7 @@ public class ClinicalService {
     Map<String, Object> p =
         one("SELECT * FROM prescription WHERE id=? AND doctor_id=?", prescriptionId, d.doctor_id());
     if (p == null) throw new UserRegistrationException(404, "处方不存在或不属于当前医生");
+    //验证处方状态
     if (((Number) p.get("status")).intValue() != 1)
       throw new UserRegistrationException(409, "只有草稿处方可以添加明细");
     KeyHolder h = new GeneratedKeyHolder();
@@ -439,32 +519,40 @@ public class ClinicalService {
     return one("SELECT * FROM prescription_item WHERE id=?", h.getKey().longValue());
   }
 
+  /**
+   * 删除处方中物品
+   * @param prescription_item_id 处方明细ID
+   */
   @Transactional(rollbackFor = Exception.class)
-  public void deleteItem(long id, HttpServletRequest r) {
+  public void deleteItem(long prescription_item_id, HttpServletRequest r) {
     AuthenticatedUser d = requireDoctor(r);
     if (one(
             "SELECT i.id FROM prescription_item i JOIN prescription p ON p.id=i.prescription_id"
                 + " WHERE i.id=? AND p.doctor_id=? AND p.status=1",
-            id,
+            prescription_item_id,
             d.doctor_id())
         == null) throw new UserRegistrationException(404, "处方明细不存在或不可删除");
-    jdbc.update("DELETE FROM prescription_item WHERE id=?", id);
+    jdbc.update("DELETE FROM prescription_item WHERE id=?", prescription_item_id);
     log(
         d.user_id(),
         "DELETE_PRESCRIPTION_ITEM",
         "prescription_item",
-        id,
+        prescription_item_id,
         "医生删除处方明细",
         r.getRemoteAddr());
   }
 
+  /**
+   *修改处方中物品
+   * @return 新的处方明细
+   */
   @Transactional(rollbackFor = Exception.class)
-  public Map<String, Object> updateItem(long id, PrescriptionItemRequest x, HttpServletRequest r) {
-    AuthenticatedUser d = requireDoctor(r);
+  public Map<String, Object> updateItem(long prescription_item_id, PrescriptionItemRequest x, HttpServletRequest request) {
+    AuthenticatedUser d = requireDoctor(request);
     if (one(
             "SELECT i.id FROM prescription_item i JOIN prescription p ON p.id=i.prescription_id"
                 + " WHERE i.id=? AND p.doctor_id=? AND p.status=1",
-            id,
+            prescription_item_id,
             d.doctor_id())
         == null) throw new UserRegistrationException(404, "处方明细不存在或不可修改");
     jdbc.update(
@@ -477,30 +565,44 @@ public class ClinicalService {
         x.frequency(),
         x.days(),
         x.quantity(),
-        x.remark(),
-        id);
+        x.remark(), prescription_item_id);
     log(
         d.user_id(),
         "UPDATE_PRESCRIPTION_ITEM",
         "prescription_item",
-        id,
+            prescription_item_id,
         "医生修改处方明细",
-        r.getRemoteAddr());
-    return one("SELECT * FROM prescription_item WHERE id=?", id);
+        request.getRemoteAddr());
+    return one("SELECT * FROM prescription_item WHERE id=?", prescription_item_id);
   }
 
-  private Map<String, Object> visitByAppointment(long id) {
-    Map<String, Object> v = one("SELECT * FROM medical_visit WHERE appointment_id=?", id);
-    return v;
+  /**
+   *根据预约ID查询就诊信息
+   * @param appointment_id 预约ID
+   * @return 就诊信息
+   */
+  private Map<String, Object> visitByAppointment(long appointment_id) {
+      return one("SELECT * FROM medical_visit WHERE appointment_id=?", appointment_id);
   }
 
-  private Map<String, Object> doctorVisit(long id, long doctor) {
-    return one("SELECT * FROM medical_visit WHERE id=? AND doctor_id=?", id, doctor);
+  /**
+   *根据就诊记录ID和医生ID查询就诊记录
+   * @param medical_id 就诊号
+   * @param doctor 医生ID
+   * @return 该患者在该医生处的就诊信息
+   */
+  private Map<String, Object> doctorVisit(long medical_id, long doctor) {
+    return one("SELECT * FROM medical_visit WHERE id=? AND doctor_id=?", medical_id, doctor);
   }
 
-  private Map<String, Object> doctorVisitOrPatient(long id, HttpServletRequest r) {
-    AuthenticatedUser u = SessionAuth.require(r);
-    Map<String, Object> v = one("SELECT * FROM medical_visit WHERE id=?", id);
+  /**
+   *根据就诊记录ID查询就诊记录
+   * @param medical_id 就诊号
+   * @return 返回该患者的所有就诊信息
+   */
+  private Map<String, Object> doctorVisitOrPatient(long medical_id, HttpServletRequest request) {
+    AuthenticatedUser u = SessionAuth.require(request);
+    Map<String, Object> v = one("SELECT * FROM medical_visit WHERE id=?", medical_id);
     if (v == null
         || (!isAdmin(u)
             && !Objects.equals(u.doctor_id(), ((Number) v.get("doctor_id")).longValue())
@@ -509,14 +611,23 @@ public class ClinicalService {
     return v;
   }
 
+  /**
+   * 预约信息上锁,防止并发修改
+   */
   private Map<String, Object> lock(String sql, Object... a) {
     return jdbc.query(sql, rs -> rs.next() ? row(rs) : null, a);
   }
 
+  /**
+   * 执行数据库语句
+   */
   private Map<String, Object> one(String sql, Object... a) {
     return jdbc.query(sql, rs -> rs.next() ? row(rs) : null, a);
   }
 
+  /**
+   * 将sql查询结果转换为Map<String Object>
+   */
   private Map<String, Object> row(java.sql.ResultSet rs) throws java.sql.SQLException {
     Map<String, Object> m = new LinkedHashMap<>();
     var md = rs.getMetaData();
@@ -524,6 +635,9 @@ public class ClinicalService {
     return m;
   }
 
+  /**
+   * 日志记录
+   */
   private void log(long uid, String type, String target, long id, String desc, String ip) {
     jdbc.update(
         "INSERT INTO"
@@ -537,20 +651,29 @@ public class ClinicalService {
         ip);
   }
 
+  /**
+   * 验证管理员身份
+   */
   private boolean isAdmin(AuthenticatedUser u) {
     return u.role_codes().stream().anyMatch(x -> x.equalsIgnoreCase("ADMIN"));
   }
 
-  private AuthenticatedUser requireDoctor(HttpServletRequest r) {
-    AuthenticatedUser u = SessionAuth.require(r);
+  /**
+   * 验证医生身份
+   */
+  private AuthenticatedUser requireDoctor(HttpServletRequest request) {
+    AuthenticatedUser u = SessionAuth.require(request);
     if (u.doctor_id() == null
         || u.role_codes().stream().noneMatch(x -> x.equalsIgnoreCase("DOCTOR")))
       throw new SessionAuthenticationException(403, "当前账号不是医生");
     return u;
   }
 
-  private AuthenticatedUser requirePatient(HttpServletRequest r) {
-    AuthenticatedUser u = SessionAuth.require(r);
+  /**
+   * 验证患者身份
+   */
+  private AuthenticatedUser requirePatient(HttpServletRequest request) {
+    AuthenticatedUser u = SessionAuth.require(request);
     if (u.patient_id() == null
         || u.role_codes().stream().noneMatch(x -> x.equalsIgnoreCase("PATIENT")))
       throw new SessionAuthenticationException(403, "当前账号不是患者");

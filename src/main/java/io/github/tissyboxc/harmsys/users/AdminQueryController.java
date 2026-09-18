@@ -15,21 +15,34 @@ public class AdminQueryController {
     this.service = service;
   }
 
+  /**
+   * 管理员查询用户
+   */
   @GetMapping
   public List<AdminUserSummary> users(HttpServletRequest r) {
     return service.users(r);
   }
 
+  /**
+   * 按ID查询用户
+   * @param id 用户ID
+   */
   @GetMapping("/{id}")
   public AdminUserSummary user(@PathVariable long id, HttpServletRequest r) {
     return service.user(id, r);
   }
 
+  /**
+   * 查询用户的角色信息
+   */
   @GetMapping("/{id}/roles")
   public List<String> roles(@PathVariable long id, HttpServletRequest r) {
     return service.roles(id, r);
   }
 
+  /**
+   * 查询用户权限
+   */
   @GetMapping("/{id}/permissions")
   public List<String> permissions(@PathVariable long id, HttpServletRequest r) {
     return service.permissions(id, r);

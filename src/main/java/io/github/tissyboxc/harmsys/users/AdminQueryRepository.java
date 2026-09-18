@@ -14,6 +14,10 @@ public class AdminQueryRepository {
     this.jdbc = jdbc;
   }
 
+  /**
+   *
+   * @return 返回所有用户信息
+   */
   public List<AdminUserSummary> users() {
     return jdbc.query(
         "SELECT u.id"
@@ -36,10 +40,17 @@ public class AdminQueryRepository {
         });
   }
 
+  /**
+   * 按ID查询用户
+   */
   public Optional<AdminUserSummary> user(long id) {
     return users().stream().filter(x -> x.user_id().equals(id)).findFirst();
   }
 
+  /**
+   * 按ID查询用户的角色
+   * @param id 用户ID
+   */
   public List<String> roles(long id) {
     return jdbc.query(
         "SELECT r.role_code FROM sys_user_role ur JOIN sys_role r ON r.id=ur.role_id WHERE"
@@ -48,6 +59,10 @@ public class AdminQueryRepository {
         id);
   }
 
+  /**
+   * 按ID查询用户的权限
+   * @param id 用户ID
+   */
   public List<String> permissions(long id) {
     return jdbc.query(
         "SELECT DISTINCT p.permission_code FROM sys_user_role ur JOIN sys_role_permission rp ON"
@@ -57,6 +72,9 @@ public class AdminQueryRepository {
         id);
   }
 
+  /**
+   * NULL转换
+   */
   private Long nullable(java.sql.ResultSet rs, String c) throws java.sql.SQLException {
     long v = rs.getLong(c);
     return rs.wasNull() ? null : v;

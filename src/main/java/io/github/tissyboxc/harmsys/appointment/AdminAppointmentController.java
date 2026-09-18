@@ -10,7 +10,9 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/admin/appointments")
-/** 管理员查询全量预约及分页数据。 */
+/**
+ * 管理员查询全量预约及分页数据。
+ */
 public class AdminAppointmentController {
   private final JdbcTemplate jdbc;
 
@@ -18,20 +20,26 @@ public class AdminAppointmentController {
     this.jdbc = jdbc;
   }
 
+  /**
+   * /api/admin/appointments,method=RequestMethod.Get
+   * 返回全部预约并关联患者返回患者信息
+   */
   @GetMapping
   public List<Map<String, Object>> list(HttpServletRequest r) {
     check(r);
     return jdbc.queryForList(
-        "SELECT a.*,p.real_name patient_name,d.real_name doctor_name,dp.name department_name "
-            + "FROM appointment a J"
-            + "OIN patient p "
-            + "ON p.id=a.patient_id "
+        "SELECT a.*,p.real_name patient_name," +
+                "d.real_name doctor_name,dp.name department_name "
+            + "FROM appointment a "
+            + "JOIN patient p ON p.id=a.patient_id "
             + "JOIN doctor d ON d.id=a.doctor_id "
-            + "JOIN department dp "
-            + "ON dp.id=a.department_id "
+            + "JOIN department dp ON dp.id=a.department_id "
             + "ORDER BY a.appointment_date DESC,a.id DESC");
   }
 
+  /**
+   *分页,按状态查询患者信息
+   */
   @GetMapping("/page")
   public Map<String, Object> page(
       @RequestParam(defaultValue = "1") int page,
@@ -40,22 +48,27 @@ public class AdminAppointmentController {
       HttpServletRequest r) {
     check(r);
     int pg = Math.max(1, page), s = Math.min(Math.max(1, page_size), 100), off = (pg - 1) * s;
-    String extra = status == null ? "" : " WHERE a.status=?";
     List<Map<String, Object>> items =
         status == null
             ? jdbc.queryForList(
-                "SELECT a.*,p.real_name patient_name,d.real_name doctor_name,dp.name"
-                    + " department_name FROM appointment a JOIN patient p ON p.id=a.patient_id JOIN"
-                    + " doctor d ON d.id=a.doctor_id JOIN department dp ON dp.id=a.department_id"
+                "SELECT a.*,p.real_name patient_name," +
+                        "d.real_name doctor_name,dp.name department_name"
+                    + " FROM appointment a " +
+                        "JOIN patient p ON p.id=a.patient_id "
+                    + "JOIN doctor d ON d.id=a.doctor_id " +
+                        "JOIN department dp ON dp.id=a.department_id"
                     + " ORDER BY a.appointment_date DESC,a.id DESC LIMIT ? OFFSET ?",
                 s,
                 off)
             : jdbc.queryForList(
-                "SELECT a.*,p.real_name patient_name,d.real_name doctor_name,dp.name"
-                    + " department_name FROM appointment a JOIN patient p ON p.id=a.patient_id JOIN"
-                    + " doctor d ON d.id=a.doctor_id JOIN department dp ON dp.id=a.department_id"
-                    + " WHERE a.status=? ORDER BY a.appointment_date DESC,a.id DESC LIMIT ? OFFSET"
-                    + " ?",
+                "SELECT a.*,p.real_name patient_name," +
+                        "d.real_name doctor_name,dp.name department_name"
+                    + " FROM appointment a " +
+                        "JOIN patient p ON p.id=a.patient_id"
+                    + " JOIN doctor d ON d.id=a.doctor_id " +
+                        "JOIN department dp ON dp.id=a.department_id"
+                    + " WHERE a.status=? " +
+                        "ORDER BY a.appointment_date DESC,a.id DESC LIMIT ? OFFSET ?",
                 status,
                 s,
                 off);
@@ -74,15 +87,22 @@ public class AdminAppointmentController {
     return m;
   }
 
+  /**
+   * 按照id查询预约详情
+   */
   @GetMapping("/{id}")
   public Map<String, Object> get(@PathVariable long id, HttpServletRequest r) {
     check(r);
     Map<String, Object> m =
         jdbc.query(
-            "SELECT a.*,p.real_name patient_name,p.phone patient_phone,d.real_name"
-                + " doctor_name,dp.name department_name FROM appointment a JOIN patient p ON"
-                + " p.id=a.patient_id JOIN doctor d ON d.id=a.doctor_id JOIN department dp ON"
-                + " dp.id=a.department_id WHERE a.id=?",
+            "SELECT a.*,p.real_name patient_name," +
+                    "p.phone patient_phone,d.real_name doctor_name"
+                + ",dp.name department_name " +
+                    "FROM appointment a " +
+                    "JOIN patient p ON p.id=a.patient_id "
+                + "JOIN doctor d ON d.id=a.doctor_id " +
+                    "JOIN department dp ON dp.id=a.department_id "
+                + "WHERE a.id=?",
             rs -> rs.next() ? row(rs) : null,
             id);
     if (m == null) throw new UserRegistrationException(404, "预约不存在");

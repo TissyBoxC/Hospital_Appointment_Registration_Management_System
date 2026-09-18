@@ -11,7 +11,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-/** 外部短信/邮件队列管理。发送为模拟动作，后续可替换为真实供应商。 */
+/** 外部短信/邮件队列管理。发送为模拟动作，后续可替换为真实供应商。
+ * SMS服务被封了,也是废案
+ */
 @RestController
 @RequestMapping("/api/admin/notification-outbox")
 /** 管理员查看和重试待发送通知的接口。 */

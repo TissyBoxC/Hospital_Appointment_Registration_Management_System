@@ -16,6 +16,10 @@ public class AdminScheduleController {
     this.service = service;
   }
 
+  /**
+   * 管理员创建医生排班
+   * @param body 请求体,包含排班信息
+   */
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
   public ScheduleResult create(
@@ -23,16 +27,28 @@ public class AdminScheduleController {
     return service.createAdminSchedule(body, request);
   }
 
+  /**
+   * 管理员查询所有排班
+   */
   @GetMapping
   public java.util.List<ScheduleResult> list(HttpServletRequest request) {
     return service.allSchedules(request);
   }
 
+  /**
+   * 根据排班ID获取排班信息
+   * @param scheduleId 排班信息
+   */
   @GetMapping("/{scheduleId}")
   public ScheduleResult get(@PathVariable long scheduleId, HttpServletRequest request) {
     return service.adminSchedule(scheduleId, request);
   }
 
+  /**
+   * 管理员修改排班信息
+   * @param scheduleId 排班ID
+   * @param body 下游请求体
+   */
   @PutMapping("/{scheduleId}")
   public ScheduleResult update(
       @PathVariable long scheduleId,
@@ -41,12 +57,21 @@ public class AdminScheduleController {
     return service.updateAdminSchedule(scheduleId, body, request);
   }
 
+  /**
+   * 管理员获取排班的时间段
+   * @param scheduleId 排班ID
+   */
   @GetMapping("/{scheduleId}/slots")
   public java.util.List<SlotResult> slots(
       @PathVariable long scheduleId, HttpServletRequest request) {
     return service.adminSlots(scheduleId, request);
   }
 
+  /**
+   * 管理员创建指定排班的时间段信息
+   * @param scheduleId 排班ID
+   * @param body 请求体
+   */
   @PostMapping("/{scheduleId}/slots")
   @ResponseStatus(HttpStatus.CREATED)
   public SlotResult createSlot(
@@ -56,6 +81,11 @@ public class AdminScheduleController {
     return service.createAdminSlot(scheduleId, body, request);
   }
 
+  /**
+   * 修改指定时间段的状态
+   * @param slotId 时间段ID
+   * @param body 请求体
+   */
   @PutMapping("/slots/{slotId}/status")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void updateSlotStatus(
@@ -65,6 +95,10 @@ public class AdminScheduleController {
     service.adminUpdateSlotStatus(slotId, body.status(), request);
   }
 
+  /**
+   * 排班删除接口
+   * @param scheduleId 排班ID
+   */
   @DeleteMapping("/{scheduleId}")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void delete(@PathVariable long scheduleId, HttpServletRequest request) {

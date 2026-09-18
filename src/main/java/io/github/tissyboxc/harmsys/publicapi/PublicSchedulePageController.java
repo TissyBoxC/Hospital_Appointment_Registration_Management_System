@@ -15,6 +15,11 @@ public class PublicSchedulePageController {
     this.jdbc = jdbc;
   }
 
+  /**
+   * 排班信息分页查询
+   * @param department_id 科室ID
+   * @param doctor_id 医生ID
+   */
   @GetMapping("/page")
   public Map<String, Object> page(
       @RequestParam(defaultValue = "1") int page,

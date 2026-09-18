@@ -20,6 +20,11 @@ public class DepartmentRepository {
     this.jdbcTemplate = jdbcTemplate;
   }
 
+  /**
+   * 查询所有科室,可选科室状态
+   * @param onlyEnabled 科室是否启用
+   * @return 科室信息
+   */
   public List<DepartmentResult> findAll(boolean onlyEnabled) {
     String condition = onlyEnabled ? "AND status = 1" : "";
     return jdbcTemplate.query(
@@ -31,6 +36,11 @@ public class DepartmentRepository {
         this::map);
   }
 
+  /**
+   * 根据ID查询科室
+   * @param id 科室ID
+   * @return 科室信息
+   */
   public Optional<DepartmentResult> findById(long id) {
     return jdbcTemplate
         .query(
@@ -43,18 +53,32 @@ public class DepartmentRepository {
         .findFirst();
   }
 
+  /**
+   * 某科室是否存在
+   * @param id 科室ID
+   */
   public boolean exists(long id) {
     return count("SELECT COUNT(*) FROM department WHERE id = ? AND deleted = 0", id) > 0;
   }
 
+  /**
+   * 某科室是否有子科室
+   */
   public boolean hasChildren(long id) {
     return count("SELECT COUNT(*) FROM department WHERE parent_id = ? AND deleted = 0", id) > 0;
   }
 
+  /**
+   * 某科室是否有医生
+   */
   public boolean hasDoctors(long id) {
     return count("SELECT COUNT(*) FROM doctor WHERE department_id = ? AND deleted = 0", id) > 0;
   }
 
+  /**
+   * 插入科室信息
+   * @param request 科室信息
+   */
   public long insert(DepartmentRequest request) {
     KeyHolder keyHolder = new GeneratedKeyHolder();
     int rows =
@@ -103,6 +127,14 @@ public class DepartmentRepository {
         != 1) throw new IllegalStateException("科室不存在或已删除");
   }
 
+  /**
+   * 写日志
+   * @param userId 操作者ID
+   * @param operation 操作
+   * @param targetId 目标ID
+   * @param description 描述
+   * @param ip 地址
+   */
   public void writeLog(
       long userId, String operation, Long targetId, String description, String ip) {
     jdbcTemplate.update(
@@ -121,6 +153,12 @@ public class DepartmentRepository {
     return value == null ? 0 : value;
   }
 
+  /**
+   * 格式化处理数据库返回的科室信息
+   * @param rs 原始信息
+   * @param row 行数
+   * @return 格式化后的科室实体
+   */
   private DepartmentResult map(java.sql.ResultSet rs, int row) throws java.sql.SQLException {
     return new DepartmentResult(
         rs.getLong("id"),
@@ -136,6 +174,9 @@ public class DepartmentRepository {
         rs.getTimestamp("updated_at").toLocalDateTime());
   }
 
+  /**
+   * 可NULL数据处理为JAVA中的null
+   */
   private Long getNullableLong(java.sql.ResultSet rs, String column) throws java.sql.SQLException {
     long value = rs.getLong(column);
     return rs.wasNull() ? null : value;
