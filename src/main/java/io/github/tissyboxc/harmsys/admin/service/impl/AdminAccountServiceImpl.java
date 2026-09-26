@@ -222,7 +222,7 @@ public class AdminAccountServiceImpl implements AdminAccountService {
   }
 
   /**
-   * 管理员任命科室管理员
+   * 管理员任命科室管理员：给医生账号直授 DEPARTMENT_MANAGE，并维护负责科室范围。
    */
   @Transactional(rollbackFor = Exception.class)
   @Override
@@ -239,17 +239,18 @@ public class AdminAccountServiceImpl implements AdminAccountService {
     if (enabled
         && (targetDepartment == null || mapper.countEnabledDepartment(targetDepartment) == 0))
       throw new UserRegistrationException(422, "请指定有效科室，或为该医生账号配置所属科室");
-    Long roleId = mapper.selectRoleId("DEPARTMENT_MANAGER");
-    if (roleId == null) throw new IllegalStateException("系统没有初始化DEPARTMENT_MANAGER角色");
+    Long permissionId = mapper.selectPermissionId("DEPARTMENT_MANAGE");
+    if (permissionId == null) throw new IllegalStateException("系统没有初始化DEPARTMENT_MANAGE权限");
     if (enabled) {
+      mapper.deleteDepartmentManagers(userId);
+      mapper.insertDepartmentManager(targetDepartment, userId);
       try {
-        mapper.insertUserRole(userId, roleId);
+        mapper.insertUserPermission(userId, permissionId, operator.user_id());
       } catch (org.springframework.dao.DuplicateKeyException ignored) {
       }
-      mapper.insertDepartmentManager(targetDepartment, userId);
     } else {
-      mapper.deleteUserRole(userId, roleId);
       mapper.deleteDepartmentManagers(userId);
+      mapper.deleteUserPermission(userId, permissionId);
     }
     log(
         operator.user_id(),

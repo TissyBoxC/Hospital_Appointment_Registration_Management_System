@@ -61,7 +61,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
     registry
         .addInterceptor(
             new PermissionAuthorizationInterceptor(
-                permissionAuthorizationService, "SCHEDULE_REQUEST_REVIEW"))
+                permissionAuthorizationService,
+                "DEPARTMENT_MANAGE",
+                "SCHEDULE_REQUEST_REVIEW"))
         .addPathPatterns("/api/schedule-requests/**");
 
     //要求科室管理权限

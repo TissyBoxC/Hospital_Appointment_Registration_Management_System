@@ -58,9 +58,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     //校验排班状态和日期
     int scheduleStatus = ((Number) schedule.get("status")).intValue();
     if (scheduleStatus != 1
-        || ((java.sql.Date) schedule.get("schedule_date"))
-            .toLocalDate()
-            .isBefore(java.time.LocalDate.now())) {
+        || asLocalDate(schedule.get("schedule_date")).isBefore(java.time.LocalDate.now())) {
       throw new UserRegistrationException(409, "该排班当前不可预约");
     }
     //校验医生是否存在于系统
@@ -208,13 +206,13 @@ public class AppointmentServiceImpl implements AppointmentService {
     int status = ((Number) appointment.get("status")).intValue();
     if (status != 1 && status != 2) throw new UserRegistrationException(409, "预约当前不能取消");
     //校验预约时间段
-    java.sql.Date appointmentDate = (java.sql.Date) appointment.get("appointment_date");
+    java.time.LocalDate appointmentDate = asLocalDate(appointment.get("appointment_date"));
     if (appointmentDate != null
-        && appointmentDate.toLocalDate().isBefore(java.time.LocalDate.now()))
+        && appointmentDate.isBefore(java.time.LocalDate.now()))
       throw new UserRegistrationException(409, "历史预约不能取消");
 
     if (appointmentDate != null
-        && appointmentDate.toLocalDate().equals(java.time.LocalDate.now())) {
+        && appointmentDate.equals(java.time.LocalDate.now())) {
       //查询预约开始时间
       Object slotTime =
           appointment.get("slot_id") == null
@@ -270,9 +268,7 @@ public class AppointmentServiceImpl implements AppointmentService {
             : mapper.lockPatientAppointment(appointmentId, patientId);
     if (appointment == null) throw new UserRegistrationException(404, "预约不存在或不属于当前患者");
     //验证时间
-    if (((java.sql.Date) appointment.get("appointment_date"))
-        .toLocalDate()
-        .isAfter(java.time.LocalDate.now()))
+    if (asLocalDate(appointment.get("appointment_date")).isAfter(java.time.LocalDate.now()))
       throw new UserRegistrationException(409, "未到就诊日期，不能签到");
     //验证预约状态
     if (((Number) appointment.get("status")).intValue() != 2)
@@ -438,6 +434,7 @@ public class AppointmentServiceImpl implements AppointmentService {
   }
 
   private java.time.LocalDate asLocalDate(Object value) {
+    if (value == null) return null;
     if (value instanceof java.time.LocalDate localDate) return localDate;
     if (value instanceof java.sql.Date sqlDate) return sqlDate.toLocalDate();
     if (value instanceof java.util.Date date)

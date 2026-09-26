@@ -34,6 +34,16 @@ public interface AdminAccountMapper {
 
   int deleteUserRole(@Param("userId") long userId, @Param("roleId") long roleId);
 
+  Long selectPermissionId(@Param("permissionCode") String permissionCode);
+
+  int insertUserPermission(
+      @Param("userId") long userId,
+      @Param("permissionId") long permissionId,
+      @Param("grantedBy") long grantedBy);
+
+  int deleteUserPermission(
+      @Param("userId") long userId, @Param("permissionId") long permissionId);
+
   long countActiveUser(@Param("userId") long userId);
 
   Long selectDoctorDepartmentByUserId(@Param("userId") long userId);

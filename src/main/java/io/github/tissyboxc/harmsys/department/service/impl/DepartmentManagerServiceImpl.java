@@ -18,6 +18,7 @@ import io.github.tissyboxc.harmsys.operationlog.mapper.OperationLogMapper;
 import io.github.tissyboxc.harmsys.security.PermissionAuthorizationService;
 import io.github.tissyboxc.harmsys.security.session.AuthenticatedUser;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,7 +26,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** 科室负责人范围内的医生、排班和患者业务逻辑。 */
+/** 科室管理范围内的医生、排班和患者业务逻辑。 */
 @Service
 public class DepartmentManagerServiceImpl implements DepartmentManagerService {
   private static final String DEPARTMENT_MANAGE = "DEPARTMENT_MANAGE";
@@ -91,7 +92,7 @@ public class DepartmentManagerServiceImpl implements DepartmentManagerService {
       throw new UserRegistrationException(404, "医生不存在或不属于负责科室");
     log(
         user.user_id(), "DEPARTMENT_MANAGER_UPDATE_DOCTOR", "doctor", doctorId,
-        "科室负责人修改医生资料", ipAddress);
+        "科室管理用户修改医生资料", ipAddress);
     return doctor(user, doctorId);
   }
 
@@ -102,7 +103,7 @@ public class DepartmentManagerServiceImpl implements DepartmentManagerService {
     List<Long> departments = managedDepartmentIds(user, DEPARTMENT_MANAGE);
     if (doctorId != null) assertDoctorInScope(departments, doctorId);
     return mapper.selectSchedules(departments, doctorId, scheduleDate).stream()
-        .map(this::toScheduleResult)
+        .map(DepartmentManagerServiceImpl::toScheduleResult)
         .toList();
   }
 
@@ -135,7 +136,7 @@ public class DepartmentManagerServiceImpl implements DepartmentManagerService {
       long id = schedule.getId();
       log(
           user.user_id(), "DEPARTMENT_MANAGER_CREATE_SCHEDULE", "doctor_schedule", id,
-          "科室负责人创建排班", ipAddress);
+          "科室管理用户创建排班", ipAddress);
       return schedule(user, id);
     } catch (DuplicateKeyException e) {
       throw new UserRegistrationException(409, "同一医生同一天同一时段已存在排班");
@@ -162,7 +163,7 @@ public class DepartmentManagerServiceImpl implements DepartmentManagerService {
       throw new UserRegistrationException(409, "排班不存在，或已有预约不能修改");
     log(
         user.user_id(), "DEPARTMENT_MANAGER_UPDATE_SCHEDULE", "doctor_schedule", scheduleId,
-        "科室负责人修改排班", ipAddress);
+        "科室管理用户修改排班", ipAddress);
     return schedule(user, scheduleId);
   }
 
@@ -177,7 +178,7 @@ public class DepartmentManagerServiceImpl implements DepartmentManagerService {
       throw new UserRegistrationException(409, "排班不存在，或已有预约不能删除");
     log(
         user.user_id(), "DEPARTMENT_MANAGER_DELETE_SCHEDULE", "doctor_schedule", scheduleId,
-        "科室负责人删除排班", ipAddress);
+        "科室管理用户删除排班", ipAddress);
   }
 
   @Transactional(readOnly = true)
@@ -197,7 +198,7 @@ public class DepartmentManagerServiceImpl implements DepartmentManagerService {
       long id = doctorService.insertSlot(scheduleId, request);
       log(
           user.user_id(), "DEPARTMENT_MANAGER_CREATE_SLOT", "schedule_slot", id,
-          "科室负责人创建排班时间段", ipAddress);
+          "科室管理用户创建排班时间段", ipAddress);
       return doctorService.findSlot(id).orElseThrow();
     } catch (DuplicateKeyException e) {
       throw new UserRegistrationException(409, "时间段序号或时间范围重复");
@@ -218,7 +219,7 @@ public class DepartmentManagerServiceImpl implements DepartmentManagerService {
     doctorService.updateSlotStatus(slotId, status);
     log(
         user.user_id(), "DEPARTMENT_MANAGER_UPDATE_SLOT_STATUS", "schedule_slot", slotId,
-        "科室负责人修改排班时间段状态", ipAddress);
+        "科室管理用户修改排班时间段状态", ipAddress);
   }
 
   @Transactional(readOnly = true)
@@ -246,8 +247,6 @@ public class DepartmentManagerServiceImpl implements DepartmentManagerService {
       return mapper.selectAllDepartmentIds();
     authorizationService.requirePermissionForUser(user, permission);
     List<Long> departments = mapper.selectManagedDepartmentIds(user.user_id());
-    if (departments.isEmpty() && user.department_id() != null)
-      return List.of(user.department_id());
     if (departments.isEmpty()) throw new UserRegistrationException(403, "当前账号不是任何科室的负责人");
     return departments;
   }
@@ -277,15 +276,15 @@ public class DepartmentManagerServiceImpl implements DepartmentManagerService {
     return schedule;
   }
 
-  private ScheduleResult toScheduleResult(Map<String, Object> row) {
+  static ScheduleResult toScheduleResult(Map<String, Object> row) {
     return new ScheduleResult(
         number(row, "id"),
         number(row, "doctor_id"),
         number(row, "department_id"),
-        (LocalDate) row.get("schedule_date"),
+        localDate(row, "schedule_date"),
         integer(row, "period"),
-        (java.time.LocalTime) row.get("start_time"),
-        (java.time.LocalTime) row.get("end_time"),
+        localTime(row, "start_time"),
+        localTime(row, "end_time"),
         integer(row, "total_count"),
         integer(row, "booked_count"),
         (java.math.BigDecimal) row.get("fee"),
@@ -293,12 +292,26 @@ public class DepartmentManagerServiceImpl implements DepartmentManagerService {
         row.get("remark") == null ? null : String.valueOf(row.get("remark")));
   }
 
-  private long number(Map<String, Object> row, String key) {
+  private static long number(Map<String, Object> row, String key) {
     return ((Number) row.get(key)).longValue();
   }
 
-  private int integer(Map<String, Object> row, String key) {
+  private static int integer(Map<String, Object> row, String key) {
     return ((Number) row.get(key)).intValue();
+  }
+
+  private static LocalDate localDate(Map<String, Object> row, String key) {
+    Object value = row.get(key);
+    if (value instanceof LocalDate localDate) return localDate;
+    if (value instanceof java.sql.Date sqlDate) return sqlDate.toLocalDate();
+    throw new IllegalStateException("排班字段 " + key + " 无法转换为 LocalDate: " + value);
+  }
+
+  private static LocalTime localTime(Map<String, Object> row, String key) {
+    Object value = row.get(key);
+    if (value instanceof LocalTime localTime) return localTime;
+    if (value instanceof java.sql.Time sqlTime) return sqlTime.toLocalTime();
+    throw new IllegalStateException("排班字段 " + key + " 无法转换为 LocalTime: " + value);
   }
 
   private void log(

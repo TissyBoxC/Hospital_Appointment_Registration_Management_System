@@ -7,7 +7,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
 import org.springframework.web.bind.annotation.*;
 
-/** 管理员和科室负责人审核医生排班申请。 */
+/** 管理员和拥有排班申请审核权限的用户审核医生排班申请。 */
 @RestController
 @RequestMapping("/api/schedule-requests")
 public class ScheduleRequestReviewController {

@@ -27,10 +27,10 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 科室负责人查看和维护本人负责科室的医生、排班及就诊患者。
+ * 拥有科室管理权限的用户查看和维护本人科室的医生、排班及就诊患者。
  *
  * <p>所有接口都复用 {@code /api/departments/**} 的 DEPARTMENT_MANAGE 权限，并由服务层再次校验
- * department_manager 关系，防止通过 department_id、doctorId 或 scheduleId 越权访问其他科室。
+ * 医生的所属科室，防止通过 department_id、doctorId 或 scheduleId 越权访问其他科室。
  */
 @RestController
 @RequestMapping("/api/departments/manager")

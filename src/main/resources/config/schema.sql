@@ -341,7 +341,7 @@ CREATE TABLE IF NOT EXISTS medicine (
 CREATE TABLE IF NOT EXISTS prescription_item (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
   prescription_id BIGINT UNSIGNED NOT NULL COMMENT '处方ID',
-  medicine_id BIGINT UNSIGNED NULL COMMENT '药品ID；历史数据可为空',
+  medicine_id BIGINT UNSIGNED NULL COMMENT '药品ID',
   drug_name VARCHAR(255) NOT NULL COMMENT '药品名称',
   specification VARCHAR(100) NULL COMMENT '药品规格',
   dosage VARCHAR(100) NOT NULL COMMENT '单次用量',
@@ -381,7 +381,7 @@ CREATE TABLE IF NOT EXISTS sys_user_role (
   CONSTRAINT fk_user_role_role FOREIGN KEY (role_id) REFERENCES sys_role(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='用户角色关联';
 
--- 14.1 科室负责人范围
+-- 14.1 科室管理范围
 CREATE TABLE IF NOT EXISTS department_manager (
   department_id BIGINT UNSIGNED NOT NULL COMMENT '负责科室ID',
   user_id BIGINT UNSIGNED NOT NULL COMMENT '负责人账号ID',
@@ -449,8 +449,7 @@ INSERT INTO sys_role (role_code, role_name, status) VALUES
 ('DOCTOR', '医生', 1),
 ('ADMIN', '管理员', 1),
 ('REGISTRATION', '挂号员', 1),
-('PHARMACY', '药房人员', 1),
-('DEPARTMENT_MANAGER', '科室管理员', 1)
+('PHARMACY', '药房人员', 1)
 ON DUPLICATE KEY UPDATE role_name = VALUES(role_name), status = 1;
 
 INSERT INTO sys_permission (permission_code, permission_name, type) VALUES
@@ -469,22 +468,8 @@ WHERE r.role_code = 'ADMIN'
 
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r CROSS JOIN sys_permission p
-WHERE r.role_code = 'DEPARTMENT_MANAGER'
-  AND p.permission_code IN ('DEPARTMENT_MANAGE','DOCTOR_MANAGE','PATIENT_MANAGE',
-                           'SCHEDULE_ALL_MANAGE','SCHEDULE_REQUEST_REVIEW');
-
-INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
-SELECT r.id, p.id FROM sys_role r CROSS JOIN sys_permission p
 WHERE r.role_code = 'DOCTOR'
   AND p.permission_code = 'SCHEDULE_SELF_MANAGE';
-
--- 兼容旧数据：医生账号已具备科室负责人角色时，默认负责其所属科室。
-INSERT IGNORE INTO department_manager(department_id, user_id)
-SELECT d.department_id, d.user_id
-FROM doctor d
-JOIN sys_user_role ur ON ur.user_id = d.user_id
-JOIN sys_role r ON r.id = ur.role_id AND r.role_code = 'DEPARTMENT_MANAGER' AND r.status = 1
-WHERE d.deleted = 0;
 
 -- 18. 预约幂等请求记录：防止客户端重试导致重复预约
 CREATE TABLE IF NOT EXISTS appointment_idempotency (
@@ -627,96 +612,11 @@ ON DUPLICATE KEY UPDATE description = VALUES(description);
 INSERT INTO database_schema_version(version, description) VALUES (4, '药房角色、药房处方流转和一致性维护')
 ON DUPLICATE KEY UPDATE description = VALUES(description);
 
--- 补充处方支付和排班申请相关字段
-SET @ddl = IF(
-  (SELECT COUNT(*) FROM information_schema.columns
-   WHERE table_schema = DATABASE() AND table_name = 'prescription'
-     AND column_name = 'payment_status') = 0,
-  'ALTER TABLE prescription ADD COLUMN payment_status TINYINT NOT NULL DEFAULT 1 COMMENT ''1待支付 2已支付 3已退款'' AFTER status',
-  'SELECT 1');
-PREPARE schema_stmt FROM @ddl;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-
-SET @ddl = IF(
-  (SELECT COUNT(*) FROM information_schema.columns
-   WHERE table_schema = DATABASE() AND table_name = 'prescription'
-     AND column_name = 'total_amount') = 0,
-  'ALTER TABLE prescription ADD COLUMN total_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT ''处方总金额'' AFTER payment_status',
-  'SELECT 1');
-PREPARE schema_stmt FROM @ddl;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-
-SET @ddl = IF(
-  (SELECT COUNT(*) FROM information_schema.columns
-   WHERE table_schema = DATABASE() AND table_name = 'prescription'
-     AND column_name = 'payment_no') = 0,
-  'ALTER TABLE prescription ADD COLUMN payment_no VARCHAR(64) NULL COMMENT ''模拟支付单号'' AFTER total_amount',
-  'SELECT 1');
-PREPARE schema_stmt FROM @ddl;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-
-SET @ddl = IF(
-  (SELECT COUNT(*) FROM information_schema.columns
-   WHERE table_schema = DATABASE() AND table_name = 'prescription'
-     AND column_name = 'paid_at') = 0,
-  'ALTER TABLE prescription ADD COLUMN paid_at DATETIME NULL COMMENT ''处方支付时间'' AFTER payment_no',
-  'SELECT 1');
-PREPARE schema_stmt FROM @ddl;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-
-SET @ddl = IF(
-  (SELECT COUNT(*) FROM information_schema.columns
-   WHERE table_schema = DATABASE() AND table_name = 'prescription_item'
-     AND column_name = 'unit_price') = 0,
-  'ALTER TABLE prescription_item ADD COLUMN unit_price DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT ''药品单价'' AFTER quantity',
-  'SELECT 1');
-PREPARE schema_stmt FROM @ddl;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
-
 INSERT INTO database_schema_version(version, description) VALUES (5, '处方支付状态和医生排班申请审批')
 ON DUPLICATE KEY UPDATE description = VALUES(description);
 
 INSERT INTO database_schema_version(version, description) VALUES (6, '用户直授权限')
 ON DUPLICATE KEY UPDATE description = VALUES(description);
-
--- 27. 药品库存管理与处方选药
-CREATE TABLE IF NOT EXISTS medicine (
-  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
-  medicine_code VARCHAR(50) NOT NULL COMMENT '药品编码',
-  name VARCHAR(255) NOT NULL COMMENT '药品名称',
-  specification VARCHAR(100) NULL COMMENT '规格',
-  unit VARCHAR(20) NOT NULL DEFAULT '盒' COMMENT '库存单位',
-  unit_price DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '药品单价',
-  stock_quantity DECIMAL(12,2) NOT NULL DEFAULT 0.00 COMMENT '现有库存数量',
-  warning_quantity DECIMAL(12,2) NOT NULL DEFAULT 0.00 COMMENT '库存预警阈值',
-  manufacturer VARCHAR(255) NULL COMMENT '生产厂家',
-  status TINYINT NOT NULL DEFAULT 1 COMMENT '0停用 1启用',
-  remark VARCHAR(500) NULL COMMENT '备注',
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  PRIMARY KEY (id),
-  UNIQUE KEY uk_medicine_code (medicine_code),
-  KEY idx_medicine_name (name, status),
-  CONSTRAINT chk_medicine_price CHECK (unit_price >= 0),
-  CONSTRAINT chk_medicine_stock CHECK (stock_quantity >= 0),
-  CONSTRAINT chk_medicine_warning CHECK (warning_quantity >= 0),
-  CONSTRAINT chk_medicine_status CHECK (status IN (0,1))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='药品库存';
-
-SET @ddl = IF(
-  (SELECT COUNT(*) FROM information_schema.columns
-   WHERE table_schema = DATABASE() AND table_name = 'prescription_item'
-     AND column_name = 'medicine_id') = 0,
-  'ALTER TABLE prescription_item ADD COLUMN medicine_id BIGINT UNSIGNED NULL COMMENT ''药品ID；历史数据可为空'' AFTER prescription_id, ADD KEY idx_prescription_item_medicine (medicine_id), ADD CONSTRAINT fk_prescription_item_medicine FOREIGN KEY (medicine_id) REFERENCES medicine(id)',
-  'SELECT 1');
-PREPARE schema_stmt FROM @ddl;
-EXECUTE schema_stmt;
-DEALLOCATE PREPARE schema_stmt;
 
 INSERT INTO database_schema_version(version, description) VALUES (7, '药品库存管理与处方选药')
 ON DUPLICATE KEY UPDATE description = VALUES(description);

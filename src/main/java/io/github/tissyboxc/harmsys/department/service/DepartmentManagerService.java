@@ -17,7 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** 科室负责人范围内的医生、排班和患者业务逻辑。 */
+/** 科室管理范围内的医生、排班和患者业务逻辑。 */
 public interface DepartmentManagerService {
 public Map<String, Object> scope(AuthenticatedUser user);
 

@@ -87,9 +87,9 @@ public class AdminAccountController {
   }
 
   /**
-   * 管理员任命科室负责人
+   * 管理员任命科室管理员：直授 DEPARTMENT_MANAGE 权限，并设置负责科室。
    * @param userId 用户ID
-   * @param request 角色启用状态
+   * @param request 权限启用状态和科室范围
    */
   @PutMapping("/users/{userId}/department-manager")
   @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -107,6 +107,6 @@ public class AdminAccountController {
   /** 管理员重置账号密码的请求。 */
   public record PasswordResetRequest(@NotBlank @Size(min = 8, max = 64) String password) {}
 
-  /** 科室负责人权限开关请求。 */
+  /** 科室管理权限开关请求。 */
   public record DepartmentManagerRequest(@NotNull Boolean enabled, Long department_id) {}
 }

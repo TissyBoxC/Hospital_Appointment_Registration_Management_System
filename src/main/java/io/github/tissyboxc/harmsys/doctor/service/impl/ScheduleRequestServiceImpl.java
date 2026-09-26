@@ -29,6 +29,7 @@ public class ScheduleRequestServiceImpl implements ScheduleRequestService {
   private static final int TYPE_UPDATE = 2;
   private static final int TYPE_DELETE = 3;
   private static final int STATUS_PENDING = 0;
+  private static final String DEPARTMENT_MANAGE = "DEPARTMENT_MANAGE";
   private static final String SCHEDULE_REQUEST_REVIEW = "SCHEDULE_REQUEST_REVIEW";
 
   private final ScheduleRequestMapper requestMapper;
@@ -150,7 +151,8 @@ public class ScheduleRequestServiceImpl implements ScheduleRequestService {
       Integer status, Long departmentId, HttpServletRequest request) {
     AuthenticatedUser operator = requireReviewer(request);
     boolean admin = isAdmin(operator);
-    boolean departmentManager = isDepartmentManager(operator);
+    boolean departmentManager =
+        permissionAuthorizationService.hasPermission(operator.user_id(), DEPARTMENT_MANAGE);
     boolean hasReviewPermission =
         permissionAuthorizationService.hasPermission(
             operator.user_id(), SCHEDULE_REQUEST_REVIEW);
@@ -306,7 +308,11 @@ public class ScheduleRequestServiceImpl implements ScheduleRequestService {
 
   private void assertCanReview(AuthenticatedUser operator, Long departmentId) {
     if (isAdmin(operator)) return;
-    if (requestMapper.countDepartmentManager(operator.user_id(), departmentId) > 0) return;
+    if (permissionAuthorizationService.hasPermission(
+            operator.user_id(), DEPARTMENT_MANAGE)
+        && requestMapper.countDepartmentManager(operator.user_id(), departmentId) > 0) {
+      return;
+    }
     boolean hasReviewPermission =
         permissionAuthorizationService.hasPermission(
             operator.user_id(), SCHEDULE_REQUEST_REVIEW);
@@ -336,15 +342,12 @@ public class ScheduleRequestServiceImpl implements ScheduleRequestService {
     boolean hasReviewPermission =
         permissionAuthorizationService.hasPermission(
             user.user_id(), SCHEDULE_REQUEST_REVIEW);
-    if (!isAdmin(user) && !isDepartmentManager(user) && !hasReviewPermission)
+    boolean canManageDepartment =
+        permissionAuthorizationService.hasPermission(user.user_id(), DEPARTMENT_MANAGE);
+    if (!isAdmin(user) && !canManageDepartment && !hasReviewPermission)
       throw new SessionAuthenticationException(
-          403, "需要管理员、科室负责人或排班申请审核权限");
+          403, "需要管理员、科室管理权限或排班申请审核权限");
     return user;
-  }
-
-  private boolean isDepartmentManager(AuthenticatedUser user) {
-    return user.role_codes().stream()
-        .anyMatch("DEPARTMENT_MANAGER"::equalsIgnoreCase);
   }
 
   private ScheduleRequestResult one(long id) {

@@ -1,6 +1,9 @@
 package io.github.tissyboxc.harmsys.config;
 
 import io.github.tissyboxc.harmsys.security.PermissionAuthorizationService;
+import io.github.tissyboxc.harmsys.security.SessionAuthenticationException;
+import io.github.tissyboxc.harmsys.security.session.AuthenticatedUser;
+import io.github.tissyboxc.harmsys.security.session.SessionAuth;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -10,13 +13,13 @@ import org.springframework.web.servlet.HandlerInterceptor;
  **/
 public class PermissionAuthorizationInterceptor implements HandlerInterceptor {
 
-  private final String permissionCode;
+  private final String[] permissionCodes;
   private final PermissionAuthorizationService authorizationService;
 
   public PermissionAuthorizationInterceptor(
-      PermissionAuthorizationService authorizationService, String permissionCode) {
+      PermissionAuthorizationService authorizationService, String... permissionCodes) {
     this.authorizationService = authorizationService;
-    this.permissionCode = permissionCode;
+    this.permissionCodes = permissionCodes;
   }
 
   /**
@@ -29,8 +32,12 @@ public class PermissionAuthorizationInterceptor implements HandlerInterceptor {
   @Override
   public boolean preHandle(
       HttpServletRequest request, HttpServletResponse response, Object handler) {
-    authorizationService.requirePermission(request, permissionCode);
-    return true;
+    AuthenticatedUser user = SessionAuth.require(request);
+    if (user.role_codes().stream().anyMatch("ADMIN"::equalsIgnoreCase)) return true;
+    for (String permissionCode : permissionCodes) {
+      if (authorizationService.hasPermission(user.user_id(), permissionCode)) return true;
+    }
+    throw new SessionAuthenticationException(403, "没有访问该功能的权限");
   }
 }
 

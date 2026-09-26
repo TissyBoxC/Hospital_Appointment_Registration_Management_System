@@ -75,6 +75,24 @@
        AND role_id = #{roleId}
   </delete>
 
+  <select id="selectPermissionId" resultType="long">
+    SELECT id
+      FROM sys_permission
+     WHERE permission_code = #{permissionCode}
+     LIMIT 1
+  </select>
+
+  <insert id="insertUserPermission">
+    INSERT INTO sys_user_permission(user_id, permission_id, granted_by_user_id)
+    VALUES (#{userId}, #{permissionId}, #{grantedBy})
+  </insert>
+
+  <delete id="deleteUserPermission">
+    DELETE FROM sys_user_permission
+     WHERE user_id = #{userId}
+       AND permission_id = #{permissionId}
+  </delete>
+
   <select id="countActiveUser" resultType="long">
     SELECT COUNT(*)
       FROM sys_user
