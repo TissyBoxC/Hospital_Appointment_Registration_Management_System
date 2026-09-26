@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="io.github.tissyboxc.harmsys.clinical.mapper.PatientHistoryMapper">
+  <select id="selectPrescriptions" resultType="map">
+    SELECT rx.*,
+           v.visit_no,
+           d.real_name AS doctor_name
+      FROM prescription rx
+      JOIN medical_visit v ON v.id = rx.visit_id
+      JOIN doctor d ON d.id = rx.doctor_id
+     WHERE v.patient_id = #{patientId}
+     ORDER BY rx.created_at DESC
+  </select>
+
+  <select id="countOwnedPrescription" resultType="long">
+    SELECT COUNT(*)
+      FROM prescription rx
+      JOIN medical_visit v ON v.id = rx.visit_id
+     WHERE rx.id = #{prescriptionId}
+       AND v.patient_id = #{patientId}
+  </select>
+
+  <select id="selectPrescriptionItems" resultType="map">
+    SELECT *
+      FROM prescription_item
+     WHERE prescription_id = #{prescriptionId}
+     ORDER BY id
+  </select>
+
+  <select id="selectDiagnoses" resultType="map">
+    SELECT dr.*,
+           v.visit_no,
+           d.real_name AS doctor_name
+      FROM diagnosis_record dr
+      JOIN medical_visit v ON v.id = dr.visit_id
+      JOIN doctor d ON d.id = v.doctor_id
+     WHERE v.patient_id = #{patientId}
+     ORDER BY dr.created_at DESC
+  </select>
+
+  <select id="countOwnedVisit" resultType="long">
+    SELECT COUNT(*)
+      FROM medical_visit
+     WHERE id = #{visitId}
+       AND patient_id = #{patientId}
+  </select>
+
+  <select id="selectDiagnosesByVisit" resultType="map">
+    SELECT *
+      FROM diagnosis_record
+     WHERE visit_id = #{visitId}
+     ORDER BY id
+  </select>
+</mapper>

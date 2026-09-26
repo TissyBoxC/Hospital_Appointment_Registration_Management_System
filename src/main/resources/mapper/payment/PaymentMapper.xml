@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="io.github.tissyboxc.harmsys.payment.mapper.PaymentMapper">
+  <select id="selectMapById" resultType="map">
+    SELECT *
+      FROM payment_record
+     WHERE id = #{id}
+  </select>
+
+  <select id="lockPayment" resultType="map">
+    SELECT *
+      FROM payment_record
+     WHERE id = #{paymentId}
+       FOR UPDATE
+  </select>
+
+  <select id="lockAppointmentForPatient" resultType="map">
+    SELECT *
+      FROM appointment
+     WHERE id = #{appointmentId}
+       AND patient_id = #{patientId}
+       FOR UPDATE
+  </select>
+
+  <select id="lockAppointment" resultType="map">
+    SELECT *
+      FROM appointment
+     WHERE id = #{appointmentId}
+       FOR UPDATE
+  </select>
+
+  <select id="selectLatestAppointmentPayment" resultType="map">
+    SELECT *
+      FROM payment_record
+     WHERE appointment_id = #{appointmentId}
+     ORDER BY id DESC
+     LIMIT 1
+  </select>
+
+  <insert id="insertSuccessfulPayment">
+    INSERT INTO payment_record(
+      payment_no, appointment_id, patient_id, amount, payment_method,
+      status, third_party_no, paid_at
+    )
+    VALUES (
+      #{paymentNo}, #{appointmentId}, #{patientId}, #{amount}, 1,
+      2, #{thirdPartyNo}, CURRENT_TIMESTAMP
+    )
+  </insert>
+
+  <select id="selectByPaymentNo" resultType="map">
+    SELECT *
+      FROM payment_record
+     WHERE payment_no = #{paymentNo}
+  </select>
+
+  <update id="markAppointmentPaid">
+    UPDATE appointment
+       SET status = 2
+     WHERE id = #{appointmentId}
+  </update>
+
+  <select id="lockSchedule" resultType="long">
+    SELECT id
+      FROM doctor_schedule
+     WHERE id = #{scheduleId}
+       FOR UPDATE
+  </select>
+
+  <select id="lockSlot" resultType="long">
+    SELECT id
+      FROM schedule_slot
+     WHERE id = #{slotId}
+       FOR UPDATE
+  </select>
+
+  <update id="markPaymentRefunded">
+    UPDATE payment_record
+       SET status = 5,
+           refunded_at = CURRENT_TIMESTAMP,
+           refund_reason = #{reason},
+           refund_operator_id = #{operatorId}
+     WHERE id = #{paymentId}
+  </update>
+
+  <update id="cancelAppointment">
+    UPDATE appointment
+       SET status = 9,
+           cancel_reason = #{reason}
+     WHERE id = #{appointmentId}
+  </update>
+
+  <update id="releaseSlot">
+    UPDATE schedule_slot
+       SET status = 0
+     WHERE id = #{slotId}
+       AND status = 1
+  </update>
+
+  <update id="decrementBookedCount">
+    UPDATE doctor_schedule
+       SET booked_count = GREATEST(booked_count - 1, 0)
+     WHERE id = #{scheduleId}
+  </update>
+
+  <select id="selectPatientUserId" resultType="long">
+    SELECT user_id
+      FROM patient
+     WHERE id = #{patientId}
+       AND deleted = 0
+  </select>
+
+  <insert id="insertNotification">
+    INSERT INTO system_notification(user_id, title, content, notification_type)
+    VALUES (#{userId}, #{title}, #{content}, #{notificationType})
+  </insert>
+
+  <select id="selectPatientPhone" resultType="string">
+    SELECT phone
+      FROM patient
+     WHERE id = #{patientId}
+     LIMIT 1
+  </select>
+
+  <insert id="insertNotificationOutbox">
+    INSERT INTO notification_outbox(user_id, channel, recipient, subject, content, status)
+    VALUES (#{userId}, #{channel}, #{recipient}, #{subject}, #{content}, 0)
+  </insert>
+</mapper>

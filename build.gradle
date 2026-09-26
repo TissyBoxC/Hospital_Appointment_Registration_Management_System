@@ -22,6 +22,11 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+	// MyBatis-Plus 的 Spring Boot 4 专用 Starter，不能使用 Boot 3 版本。
+	implementation 'com.baomidou:mybatis-plus-spring-boot4-starter:3.5.17'
+	// IService/ServiceImpl 与分页插件在 extension 模块，分页解析依赖 jsqlparser 模块。
+	implementation 'com.baomidou:mybatis-plus-extension:3.5.17'
+	implementation 'com.baomidou:mybatis-plus-jsqlparser:3.5.17'
 	implementation 'org.springframework.security:spring-security-crypto'
 	implementation 'com.github.promeg:tinypinyin:2.0.3'
 	compileOnly 'org.projectlombok:lombok'
@@ -31,6 +36,7 @@ dependencies {
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	testImplementation 'com.h2database:h2'
 	testCompileOnly 'org.projectlombok:lombok'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testAnnotationProcessor 'org.projectlombok:lombok'

@@ -1,7 +1,7 @@
 package io.github.tissyboxc.harmsys.system.service;
 
 import io.github.tissyboxc.harmsys.config.database.DatabaseInitializationState;
-import io.github.tissyboxc.harmsys.system.repository.BusinessMaintenanceRepository;
+import io.github.tissyboxc.harmsys.system.mapper.BusinessMaintenanceMapper;
 import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -14,14 +14,14 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 public class BusinessTaskScheduler {
   private static final Logger log = LoggerFactory.getLogger(BusinessTaskScheduler.class);
-  private final BusinessMaintenanceRepository repository;
+  private final BusinessMaintenanceMapper mapper;
 
   // 数据库初始化完成前不访问业务表。
   private final DatabaseInitializationState initializationState;
 
   public BusinessTaskScheduler(
-      BusinessMaintenanceRepository repository, DatabaseInitializationState initializationState) {
-    this.repository = repository;
+      BusinessMaintenanceMapper mapper, DatabaseInitializationState initializationState) {
+    this.mapper = mapper;
     this.initializationState = initializationState;
   }
 
@@ -32,19 +32,19 @@ public class BusinessTaskScheduler {
       log.debug("数据库初始化尚未完成，跳过本次业务维护任务");
       return;
     }
-    repository.activateDueSchedules();
-    repository.closeExpiredSchedules();
-    List<Map<String, Object>> expired = repository.findExpiredAppointments();
+    mapper.activateDueSchedules();
+    mapper.closeExpiredSchedules();
+    List<Map<String, Object>> expired = mapper.selectExpiredAppointments();
     for (Map<String, Object> appointment : expired) {
       long appointmentId = ((Number) appointment.get("id")).longValue();
-      if (!repository.expireAppointment(appointmentId)) continue;
+      if (mapper.expireAppointment(appointmentId) != 1) continue;
       if (appointment.get("slot_id") != null)
-        repository.releaseSlot(((Number) appointment.get("slot_id")).longValue());
-      repository.decrementBookedCount(((Number) appointment.get("schedule_id")).longValue());
+        mapper.releaseSlot(((Number) appointment.get("slot_id")).longValue());
+      mapper.decrementBookedCount(((Number) appointment.get("schedule_id")).longValue());
     }
-    repository.markNoShows();
-    repository.reconcileBookedCounts();
-    repository.repairOrphanSlots();
-    repository.reconcilePayments();
+    mapper.markNoShows();
+    mapper.reconcileBookedCounts();
+    mapper.repairOrphanSlots();
+    mapper.reconcilePayments();
   }
 }

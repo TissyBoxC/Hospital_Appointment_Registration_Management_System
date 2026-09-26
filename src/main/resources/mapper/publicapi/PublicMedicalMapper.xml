@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="io.github.tissyboxc.harmsys.publicapi.mapper.PublicMedicalMapper">
+  <select id="selectDoctors" resultType="map">
+    SELECT d.id,
+           d.department_id,
+           dp.name AS department_name,
+           d.doctor_no,
+           d.real_name,
+           d.title,
+           d.specialty,
+           d.introduction,
+           d.avatar_url,
+           d.consultation_fee,
+           d.status
+      FROM doctor d
+      JOIN department dp ON dp.id = d.department_id
+     WHERE d.deleted = 0
+       AND d.status = 1
+    <if test="departmentId != null">
+       AND d.department_id = #{departmentId}
+    </if>
+    <if test="keyword != null and keyword != ''">
+       AND (
+         d.real_name LIKE CONCAT('%', #{keyword}, '%')
+         OR d.doctor_no LIKE CONCAT('%', #{keyword}, '%')
+         OR d.specialty LIKE CONCAT('%', #{keyword}, '%')
+       )
+    </if>
+     ORDER BY d.id
+  </select>
+
+  <select id="selectDoctor" resultType="map">
+    SELECT d.id,
+           d.department_id,
+           dp.name AS department_name,
+           d.doctor_no,
+           d.real_name,
+           d.title,
+           d.specialty,
+           d.introduction,
+           d.avatar_url,
+           d.consultation_fee,
+           d.status
+      FROM doctor d
+      JOIN department dp ON dp.id = d.department_id
+     WHERE d.id = #{id}
+       AND d.deleted = 0
+       AND d.status = 1
+  </select>
+
+  <select id="selectSchedules" resultType="map">
+    SELECT s.id,
+           s.doctor_id,
+           s.department_id,
+           d.real_name AS doctor_name,
+           dp.name AS department_name,
+           s.schedule_date,
+           s.period,
+           s.start_time,
+           s.end_time,
+           s.total_count,
+           s.booked_count,
+           (s.total_count - s.booked_count) AS remaining_count,
+           s.fee,
+           s.status,
+           s.remark
+      FROM doctor_schedule s
+      JOIN doctor d ON d.id = s.doctor_id
+      JOIN department dp ON dp.id = s.department_id
+     WHERE s.status = 1
+       AND d.status = 1
+       AND d.deleted = 0
+       AND s.schedule_date &gt;= CURRENT_DATE
+    <if test="departmentId != null">
+       AND s.department_id = #{departmentId}
+    </if>
+    <if test="doctorId != null">
+       AND s.doctor_id = #{doctorId}
+    </if>
+    <if test="scheduleDate != null and scheduleDate != ''">
+       AND s.schedule_date = #{scheduleDate}
+    </if>
+    <if test="period != null">
+       AND s.period = #{period}
+    </if>
+     ORDER BY s.schedule_date, s.start_time
+  </select>
+
+  <select id="selectSchedule" resultType="map">
+    SELECT * FROM doctor_schedule WHERE id = #{id} AND status = 1
+  </select>
+
+  <select id="selectSlots" resultType="map">
+    SELECT id, schedule_id, slot_no, start_time, end_time, status
+      FROM schedule_slot
+     WHERE schedule_id = #{scheduleId}
+       AND status = 0
+     ORDER BY slot_no
+  </select>
+</mapper>

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="io.github.tissyboxc.harmsys.admin.mapper.AdminProfileMapper">
+  <select id="selectPatient" resultType="map">
+    SELECT * FROM patient WHERE id = #{id} AND deleted = 0
+  </select>
+
+  <update id="updatePatient">
+    UPDATE patient
+       SET real_name = #{request.real_name},
+           phone = #{request.phone},
+           address = #{request.address},
+           emergency_contact = #{request.emergency_contact},
+           emergency_phone = #{request.emergency_phone}
+     WHERE id = #{id}
+       AND deleted = 0
+  </update>
+
+  <select id="selectPatientAfterUpdate" resultType="map">
+    SELECT * FROM patient WHERE id = #{id}
+  </select>
+
+  <select id="selectDoctor" resultType="map">
+    SELECT d.*, dp.name AS department_name
+      FROM doctor d
+      JOIN department dp ON dp.id = d.department_id
+     WHERE d.id = #{id}
+       AND d.deleted = 0
+  </select>
+
+  <update id="updateDoctor">
+    UPDATE doctor
+       SET department_id = #{request.department_id},
+           real_name = #{request.real_name},
+           title = #{request.title},
+           specialty = #{request.specialty},
+           introduction = #{request.introduction},
+           avatar_url = #{request.avatar_url},
+           consultation_fee = #{request.consultation_fee}
+     WHERE id = #{id}
+       AND deleted = 0
+  </update>
+
+  <select id="selectDoctorAfterUpdate" resultType="map">
+    SELECT d.*, dp.name AS department_name
+      FROM doctor d
+      JOIN department dp ON dp.id = d.department_id
+     WHERE d.id = #{id}
+  </select>
+
+  <update id="updateDoctorStatus">
+    UPDATE doctor SET status = #{status} WHERE id = #{id} AND deleted = 0
+  </update>
+</mapper>

@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="io.github.tissyboxc.harmsys.admin.mapper.AdminQueryMapper">
+  <select id="selectUsers" resultType="map">
+    SELECT u.id AS user_id,
+           u.username,
+           u.user_type,
+           u.status,
+           COALESCE(p.real_name, d.real_name, u.username) AS display_name,
+           p.id AS patient_id,
+           d.id AS doctor_id,
+           d.department_id,
+           dp.name AS department_name
+      FROM sys_user u
+      LEFT JOIN patient p ON p.user_id = u.id AND p.deleted = 0
+      LEFT JOIN doctor d ON d.user_id = u.id AND d.deleted = 0
+      LEFT JOIN department dp ON dp.id = d.department_id
+     WHERE u.deleted = 0
+     ORDER BY u.id DESC
+  </select>
+
+  <select id="selectUser" resultType="map">
+    SELECT u.id AS user_id,
+           u.username,
+           u.user_type,
+           u.status,
+           COALESCE(p.real_name, d.real_name, u.username) AS display_name,
+           p.id AS patient_id,
+           d.id AS doctor_id,
+           d.department_id,
+           dp.name AS department_name
+      FROM sys_user u
+      LEFT JOIN patient p ON p.user_id = u.id AND p.deleted = 0
+      LEFT JOIN doctor d ON d.user_id = u.id AND d.deleted = 0
+      LEFT JOIN department dp ON dp.id = d.department_id
+     WHERE u.deleted = 0
+       AND u.id = #{id}
+  </select>
+
+  <select id="selectRoles" resultType="string">
+    SELECT r.role_code
+      FROM sys_user_role ur
+      JOIN sys_role r ON r.id = ur.role_id
+     WHERE ur.user_id = #{id}
+       AND r.status = 1
+     ORDER BY r.id
+  </select>
+
+  <select id="selectPermissions" resultType="string">
+    SELECT p.permission_code
+      FROM sys_permission p
+     WHERE EXISTS (
+       SELECT 1
+         FROM sys_user_role ur
+         JOIN sys_role_permission rp ON rp.role_id = ur.role_id
+         JOIN sys_role r ON r.id = ur.role_id
+        WHERE ur.user_id = #{id}
+          AND r.status = 1
+          AND rp.permission_id = p.id
+     )
+     OR EXISTS (
+       SELECT 1
+         FROM sys_user_permission up
+        WHERE up.user_id = #{id}
+          AND up.permission_id = p.id
+     )
+     ORDER BY p.permission_code
+  </select>
+
+  <sql id="userPageFrom">
+    FROM sys_user u
+    LEFT JOIN patient p ON p.user_id = u.id AND p.deleted = 0
+    LEFT JOIN doctor d ON d.user_id = u.id AND d.deleted = 0
+    LEFT JOIN department dp ON dp.id = d.department_id
+  </sql>
+
+  <sql id="userPageWhere">
+    WHERE u.deleted = 0
+    <if test="query.userType != null">
+      AND u.user_type = #{query.userType}
+    </if>
+    <if test="query.status != null">
+      AND u.status = #{query.status}
+    </if>
+    <if test="query.keyword != null and query.keyword != ''">
+      AND (
+        u.username LIKE CONCAT('%', #{query.keyword}, '%')
+        OR p.real_name LIKE CONCAT('%', #{query.keyword}, '%')
+        OR d.real_name LIKE CONCAT('%', #{query.keyword}, '%')
+      )
+    </if>
+  </sql>
+
+  <select id="selectUserPage" resultType="map">
+    SELECT u.id AS user_id,
+           u.username,
+           u.user_type,
+           u.status,
+           COALESCE(p.real_name, d.real_name, u.username) AS display_name,
+           p.id AS patient_id,
+           d.id AS doctor_id,
+           d.department_id,
+           dp.name AS department_name
+    <include refid="userPageFrom"/>
+    <include refid="userPageWhere"/>
+     ORDER BY u.id DESC
+     LIMIT #{query.pageSize} OFFSET #{offset}
+  </select>
+
+  <select id="countUserPage" resultType="long">
+    SELECT COUNT(*)
+    <include refid="userPageFrom"/>
+    <include refid="userPageWhere"/>
+  </select>
+</mapper>

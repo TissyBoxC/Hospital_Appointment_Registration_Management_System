@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="io.github.tissyboxc.harmsys.doctor.mapper.DoctorMapper">
+  <select id="selectProfile"
+      resultType="io.github.tissyboxc.harmsys.doctor.dto.DoctorProfileResult">
+    SELECT d.id,
+           d.user_id,
+           d.department_id,
+           dp.name AS department_name,
+           d.doctor_no,
+           d.real_name,
+           d.title,
+           d.specialty,
+           d.introduction,
+           d.avatar_url,
+           d.consultation_fee,
+           d.status
+      FROM doctor d
+      JOIN department dp ON dp.id = d.department_id
+     WHERE d.id = #{doctorId}
+       AND d.deleted = 0
+  </select>
+</mapper>

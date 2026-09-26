@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="io.github.tissyboxc.harmsys.pharmacy.mapper.PharmacyMapper">
+  <select id="selectPrescriptions" resultType="map">
+    SELECT p.*,
+           v.patient_id,
+           pt.real_name AS patient_name,
+           pt.phone AS patient_phone,
+           d.real_name AS doctor_name
+      FROM prescription p
+      JOIN medical_visit v ON v.id = p.visit_id
+      JOIN patient pt ON pt.id = v.patient_id
+      JOIN doctor d ON d.id = p.doctor_id
+     WHERE p.status IN (2, 3)
+    <if test="status != null">
+       AND p.status = #{status}
+    </if>
+    <if test="paymentStatus != null">
+       AND p.payment_status = #{paymentStatus}
+    </if>
+     ORDER BY p.created_at DESC
+  </select>
+
+  <select id="selectPrescription" resultType="map">
+    SELECT p.*,
+           v.patient_id,
+           pt.real_name AS patient_name,
+           pt.phone AS patient_phone,
+           d.real_name AS doctor_name
+      FROM prescription p
+      JOIN medical_visit v ON v.id = p.visit_id
+      JOIN patient pt ON pt.id = v.patient_id
+      JOIN doctor d ON d.id = p.doctor_id
+     WHERE p.id = #{id}
+  </select>
+
+  <select id="selectPrescriptionItems" resultType="map">
+    SELECT *
+      FROM prescription_item
+     WHERE prescription_id = #{prescriptionId}
+     ORDER BY id
+  </select>
+
+  <select id="lockDispensablePrescription" resultType="map">
+    SELECT *
+      FROM prescription
+     WHERE id = #{id}
+       AND status = 2
+       AND payment_status = 2
+       FOR UPDATE
+  </select>
+
+  <select id="lockDispenseItems" resultType="map">
+    SELECT i.*,
+           m.stock_quantity
+      FROM prescription_item i
+      LEFT JOIN medicine m ON m.id = i.medicine_id
+     WHERE i.prescription_id = #{prescriptionId}
+     ORDER BY i.id
+  </select>
+
+  <update id="deductStock">
+    UPDATE medicine
+       SET stock_quantity = stock_quantity - #{quantity}
+     WHERE id = #{medicineId}
+       AND stock_quantity &gt;= #{quantity}
+  </update>
+
+  <update id="markDispensed">
+    UPDATE prescription
+       SET status = 3
+     WHERE id = #{id}
+  </update>
+</mapper>

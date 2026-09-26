@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="io.github.tissyboxc.harmsys.doctor.mapper.ScheduleLifecycleMapper">
+  <select id="lockSchedule" resultType="map">
+    SELECT *
+      FROM doctor_schedule
+     WHERE id = #{id}
+       FOR UPDATE
+  </select>
+
+  <select id="lockDoctorSchedule" resultType="map">
+    SELECT *
+      FROM doctor_schedule
+     WHERE id = #{id}
+       AND doctor_id = #{doctorId}
+       FOR UPDATE
+  </select>
+
+  <select id="findSchedule" resultType="map">
+    SELECT *
+      FROM doctor_schedule
+     WHERE id = #{id}
+  </select>
+
+  <select id="findSlot" resultType="map">
+    SELECT *
+      FROM schedule_slot
+     WHERE id = #{slotId}
+  </select>
+
+  <update id="updateScheduleStatus">
+    UPDATE doctor_schedule
+       SET status = #{status}
+     WHERE id = #{id}
+  </update>
+
+  <update id="updateSlotStatus">
+    UPDATE schedule_slot
+       SET status = #{status}
+     WHERE id = #{slotId}
+  </update>
+
+  <delete id="deleteSlot">
+    DELETE FROM schedule_slot
+     WHERE id = #{slotId}
+  </delete>
+
+  <select id="countBlockingAppointments" resultType="long">
+    SELECT COUNT(*)
+      FROM appointment
+     WHERE slot_id = #{slotId}
+       AND status IN (1, 2, 3, 4)
+  </select>
+
+  <update id="stopSchedule">
+    UPDATE doctor_schedule
+       SET status = 2,
+           remark = #{reason}
+     WHERE id = #{id}
+  </update>
+
+  <select id="activeAppointments" resultType="map">
+    SELECT id, slot_id
+      FROM appointment
+     WHERE schedule_id = #{scheduleId}
+       AND status IN (1, 2, 3, 4)
+  </select>
+
+  <update id="cancelAppointment">
+    UPDATE appointment
+       SET status = 7,
+           cancel_reason = #{reason},
+           cancelled_at = CURRENT_TIMESTAMP
+     WHERE id = #{id}
+  </update>
+
+  <update id="releaseSlot">
+    UPDATE schedule_slot
+       SET status = 0
+     WHERE id = #{slotId}
+       AND status = 1
+  </update>
+
+  <update id="refundSuccessfulPayment">
+    UPDATE payment_record
+       SET status = 5,
+           refunded_at = CURRENT_TIMESTAMP
+     WHERE appointment_id = #{appointmentId}
+       AND status = 2
+  </update>
+
+  <update id="resetBookedCount">
+    UPDATE doctor_schedule
+       SET booked_count = 0
+     WHERE id = #{scheduleId}
+  </update>
+</mapper>

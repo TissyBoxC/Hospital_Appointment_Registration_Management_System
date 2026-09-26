@@ -470,7 +470,8 @@ WHERE r.role_code = 'ADMIN'
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r CROSS JOIN sys_permission p
 WHERE r.role_code = 'DEPARTMENT_MANAGER'
-  AND p.permission_code IN ('DEPARTMENT_MANAGE','SCHEDULE_REQUEST_REVIEW');
+  AND p.permission_code IN ('DEPARTMENT_MANAGE','DOCTOR_MANAGE','PATIENT_MANAGE',
+                           'SCHEDULE_ALL_MANAGE','SCHEDULE_REQUEST_REVIEW');
 
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r CROSS JOIN sys_permission p

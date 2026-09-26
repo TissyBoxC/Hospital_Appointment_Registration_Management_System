@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="io.github.tissyboxc.harmsys.system.mapper.BusinessMaintenanceMapper">
+  <update id="activateDueSchedules">
+    UPDATE doctor_schedule
+       SET status = 1
+     WHERE status = 0
+       AND schedule_date = CURRENT_DATE
+       AND start_time &gt; CURTIME()
+       AND EXISTS (
+         SELECT 1
+           FROM doctor d
+          WHERE d.id = doctor_schedule.doctor_id
+            AND d.status = 1
+            AND d.deleted = 0
+       )
+  </update>
+
+  <update id="closeExpiredSchedules">
+    UPDATE doctor_schedule
+       SET status = 3
+     WHERE status = 1
+       AND (
+         schedule_date &lt; CURRENT_DATE
+         OR (schedule_date = CURRENT_DATE AND end_time &lt;= CURTIME())
+       )
+  </update>
+
+  <select id="selectExpiredAppointments" resultType="map">
+    SELECT id, schedule_id, slot_id
+      FROM appointment
+     WHERE status IN (1, 2)
+       AND (
+         appointment_date &lt; CURRENT_DATE
+         OR (
+           appointment_date = CURRENT_DATE
+           AND created_at &lt; DATE_SUB(NOW(), INTERVAL 1 DAY)
+         )
+       )
+  </select>
+
+  <update id="expireAppointment">
+    UPDATE appointment
+       SET status = 8,
+           cancel_reason = '系统自动过期'
+     WHERE id = #{appointmentId}
+       AND status IN (1, 2)
+  </update>
+
+  <update id="releaseSlot">
+    UPDATE schedule_slot SET status = 0 WHERE id = #{slotId} AND status = 1
+  </update>
+
+  <update id="decrementBookedCount">
+    UPDATE doctor_schedule
+       SET booked_count = GREATEST(booked_count - 1, 0)
+     WHERE id = #{scheduleId}
+  </update>
+
+  <update id="markNoShows">
+    UPDATE appointment a
+    LEFT JOIN medical_visit v ON v.appointment_id = a.id
+       SET a.status = 8,
+           a.cancel_reason = '系统自动标记过号'
+     WHERE a.status = 3
+       AND a.appointment_date &lt; CURRENT_DATE
+       AND v.id IS NULL
+  </update>
+
+  <update id="reconcileBookedCounts">
+    UPDATE doctor_schedule ds
+    LEFT JOIN (
+      SELECT schedule_id, COUNT(*) AS cnt
+        FROM appointment
+       WHERE status IN (1, 2, 3, 4)
+       GROUP BY schedule_id
+    ) x ON x.schedule_id = ds.id
+       SET ds.booked_count = COALESCE(x.cnt, 0)
+     WHERE ds.booked_count &lt;&gt; COALESCE(x.cnt, 0)
+  </update>
+
+  <update id="repairOrphanSlots">
+    UPDATE schedule_slot s
+    LEFT JOIN appointment a ON a.slot_id = s.id AND a.status IN (1, 2, 3, 4)
+       SET s.status = 0
+     WHERE s.status = 1
+       AND a.id IS NULL
+  </update>
+
+  <update id="reconcilePayments">
+    UPDATE payment_record p
+    JOIN appointment a ON a.id = p.appointment_id
+       SET p.status = 5,
+           p.refunded_at = COALESCE(p.refunded_at, CURRENT_TIMESTAMP),
+           p.refund_reason = COALESCE(p.refund_reason, '系统一致性修复')
+     WHERE p.status = 2
+       AND a.status IN (6, 7, 8, 9)
+  </update>
+</mapper>

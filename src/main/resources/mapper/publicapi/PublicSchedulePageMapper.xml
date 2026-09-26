@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="io.github.tissyboxc.harmsys.publicapi.mapper.PublicSchedulePageMapper">
+  <sql id="fromAndWhere">
+    FROM doctor_schedule ds
+    JOIN doctor d ON d.id = ds.doctor_id
+    JOIN department dp ON dp.id = ds.department_id
+   WHERE ds.status = 1
+     AND ds.schedule_date &gt;= CURRENT_DATE
+     AND ds.booked_count &lt; ds.total_count
+     AND d.status = 1
+     AND d.deleted = 0
+    <if test="departmentId != null">
+       AND ds.department_id = #{departmentId}
+    </if>
+    <if test="doctorId != null">
+       AND ds.doctor_id = #{doctorId}
+    </if>
+  </sql>
+
+  <select id="selectPage" resultType="map">
+    SELECT ds.id,
+           ds.doctor_id,
+           ds.department_id,
+           d.real_name AS doctor_name,
+           dp.name AS department_name,
+           ds.schedule_date,
+           ds.period,
+           ds.start_time,
+           ds.end_time,
+           ds.total_count,
+           ds.booked_count,
+           (ds.total_count - ds.booked_count) AS remaining_count,
+           ds.fee,
+           ds.status,
+           ds.remark
+    <include refid="fromAndWhere"/>
+     ORDER BY ds.schedule_date, ds.start_time
+     LIMIT #{size} OFFSET #{offset}
+  </select>
+
+  <select id="countPage" resultType="long">
+    SELECT COUNT(*)
+    <include refid="fromAndWhere"/>
+  </select>
+</mapper>

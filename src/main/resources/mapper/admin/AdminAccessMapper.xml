@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="io.github.tissyboxc.harmsys.admin.mapper.AdminAccessMapper">
+  <update id="updateUser">
+    UPDATE sys_user
+    <set>
+      <if test="username != null">username = #{username},</if>
+      <if test="status != null">status = #{status},</if>
+    </set>
+     WHERE id = #{id}
+       AND deleted = 0
+  </update>
+
+  <select id="selectUser" resultType="map">
+    SELECT id AS user_id,
+           username,
+           user_type,
+           status,
+           deleted,
+           created_at,
+           updated_at
+      FROM sys_user
+     WHERE id = #{id}
+  </select>
+
+  <update id="deleteUser">
+    UPDATE sys_user
+       SET deleted = 1,
+           status = 0
+     WHERE id = #{id}
+       AND deleted = 0
+  </update>
+
+  <update id="deletePatientByUser">
+    UPDATE patient SET deleted = 1 WHERE user_id = #{userId}
+  </update>
+
+  <update id="deleteDoctorByUser">
+    UPDATE doctor SET deleted = 1, status = 0 WHERE user_id = #{userId}
+  </update>
+
+  <update id="restoreUser">
+    UPDATE sys_user
+       SET deleted = 0,
+           status = 1
+     WHERE id = #{id}
+  </update>
+
+  <update id="restorePatientByUser">
+    UPDATE patient SET deleted = 0 WHERE user_id = #{userId}
+  </update>
+
+  <update id="restoreDoctorByUser">
+    UPDATE doctor SET deleted = 0, status = 1 WHERE user_id = #{userId}
+  </update>
+
+  <select id="selectRestoredUser" resultType="map">
+    SELECT id AS user_id, username, user_type, status, deleted
+      FROM sys_user
+     WHERE id = #{id}
+  </select>
+
+  <select id="selectRoleId" resultType="long">
+    SELECT id
+      FROM sys_role
+     WHERE role_code = #{roleCode}
+       AND status = 1
+  </select>
+
+  <insert id="insertUserRole">
+    INSERT INTO sys_user_role(user_id, role_id) VALUES (#{userId}, #{roleId})
+  </insert>
+
+  <select id="selectUserRole" resultType="map">
+    SELECT u.id AS user_id,
+           u.username,
+           r.role_code,
+           r.role_name
+      FROM sys_user u
+      JOIN sys_user_role ur ON ur.user_id = u.id
+      JOIN sys_role r ON r.id = ur.role_id
+     WHERE u.id = #{userId}
+       AND r.id = #{roleId}
+  </select>
+
+  <delete id="deleteUserRole">
+    DELETE FROM sys_user_role WHERE user_id = #{userId} AND role_id = #{roleId}
+  </delete>
+
+  <select id="selectPermissionId" resultType="long">
+    SELECT id FROM sys_permission WHERE permission_code = #{permissionCode}
+  </select>
+
+  <insert id="insertRolePermission">
+    INSERT INTO sys_role_permission(role_id, permission_id)
+    VALUES (#{roleId}, #{permissionId})
+  </insert>
+
+  <select id="selectRolePermission" resultType="map">
+    SELECT r.id AS role_id,
+           r.role_code,
+           p.id AS permission_id,
+           p.permission_code
+      FROM sys_role r
+      JOIN sys_role_permission rp ON rp.role_id = r.id
+      JOIN sys_permission p ON p.id = rp.permission_id
+     WHERE r.id = #{roleId}
+       AND p.id = #{permissionId}
+  </select>
+
+  <delete id="deleteRolePermission">
+    DELETE FROM sys_role_permission
+     WHERE role_id = #{roleId}
+       AND permission_id = #{permissionId}
+  </delete>
+
+  <select id="countActiveUser" resultType="long">
+    SELECT COUNT(*) FROM sys_user WHERE id = #{userId} AND deleted = 0
+  </select>
+
+  <insert id="insertUserPermission">
+    INSERT INTO sys_user_permission(user_id, permission_id, granted_by_user_id)
+    VALUES (#{userId}, #{permissionId}, #{grantedBy})
+  </insert>
+
+  <select id="selectUserDirectPermission" resultType="map">
+    SELECT u.id AS user_id,
+           u.username,
+           p.id AS permission_id,
+           p.permission_code,
+           p.permission_name
+      FROM sys_user u
+      JOIN sys_user_permission up ON up.user_id = u.id
+      JOIN sys_permission p ON p.id = up.permission_id
+     WHERE u.id = #{userId}
+       AND p.id = #{permissionId}
+  </select>
+
+  <delete id="deleteUserPermission">
+    DELETE FROM sys_user_permission WHERE user_id = #{userId} AND permission_id = #{permissionId}
+  </delete>
+
+  <select id="selectUserDirectPermissions" resultType="map">
+    SELECT p.id AS permission_id,
+           p.permission_code,
+           p.permission_name,
+           p.type,
+           up.created_at
+      FROM sys_user_permission up
+      JOIN sys_permission p ON p.id = up.permission_id
+     WHERE up.user_id = #{userId}
+     ORDER BY p.permission_code
+  </select>
+
+  <insert id="insertRole">
+    INSERT INTO sys_role(role_code, role_name, status) VALUES (#{code}, #{name}, #{status})
+  </insert>
+
+  <select id="selectRoleIdByCode" resultType="long">
+    SELECT id FROM sys_role WHERE role_code = #{code}
+  </select>
+
+  <select id="selectRoles" resultType="map">
+    SELECT * FROM sys_role ORDER BY id
+  </select>
+
+  <select id="selectRole" resultType="map">
+    SELECT * FROM sys_role WHERE id = #{id}
+  </select>
+
+  <select id="selectRolePermissions" resultType="map">
+    SELECT p.*
+      FROM sys_permission p
+      JOIN sys_role_permission rp ON rp.permission_id = p.id
+     WHERE rp.role_id = #{roleId}
+     ORDER BY p.id
+  </select>
+
+  <update id="updateRole">
+    UPDATE sys_role SET role_name = #{name}, status = #{status} WHERE id = #{id}
+  </update>
+
+  <update id="disableRole">
+    UPDATE sys_role SET status = 0 WHERE id = #{id}
+  </update>
+
+  <insert id="insertPermission">
+    INSERT INTO sys_permission(permission_code, permission_name, type)
+    VALUES (#{code}, #{name}, #{type})
+  </insert>
+
+  <select id="selectPermissionIdByCode" resultType="long">
+    SELECT id FROM sys_permission WHERE permission_code = #{code}
+  </select>
+
+  <select id="selectPermissions" resultType="map">
+    SELECT * FROM sys_permission ORDER BY id
+  </select>
+
+  <select id="selectPermission" resultType="map">
+    SELECT * FROM sys_permission WHERE id = #{id}
+  </select>
+
+  <update id="updatePermission">
+    UPDATE sys_permission SET permission_name = #{name}, type = #{type} WHERE id = #{id}
+  </update>
+
+  <select id="countPermission" resultType="long">
+    SELECT COUNT(*) FROM sys_permission WHERE id = #{id}
+  </select>
+
+  <delete id="deletePermissionRelations">
+    DELETE FROM sys_role_permission WHERE permission_id = #{id}
+  </delete>
+
+  <delete id="deletePermission">
+    DELETE FROM sys_permission WHERE id = #{id}
+  </delete>
+
+  <select id="countUsers" resultType="long">
+    SELECT COUNT(*) FROM sys_user WHERE deleted = 0
+  </select>
+
+  <select id="countPatients" resultType="long">
+    SELECT COUNT(*) FROM patient WHERE deleted = 0
+  </select>
+
+  <select id="countDoctors" resultType="long">
+    SELECT COUNT(*) FROM doctor WHERE deleted = 0 AND status = 1
+  </select>
+
+  <select id="countDepartments" resultType="long">
+    SELECT COUNT(*) FROM department WHERE deleted = 0 AND status = 1
+  </select>
+
+  <select id="countTodayAppointments" resultType="long">
+    SELECT COUNT(*) FROM appointment WHERE appointment_date = CURRENT_DATE
+  </select>
+
+  <select id="countTodayCompletedVisits" resultType="long">
+    SELECT COUNT(*) FROM medical_visit WHERE DATE(visit_end_at) = CURRENT_DATE
+  </select>
+
+  <select id="selectPaidAmount" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(amount), 0) FROM payment_record WHERE status = 2
+  </select>
+</mapper>

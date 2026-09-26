@@ -1,0 +1,426 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="io.github.tissyboxc.harmsys.appointment.mapper.AppointmentMapper">
+  <select id="selectIdempotentAppointment" resultType="map">
+    SELECT appointment_id
+      FROM appointment_idempotency
+     WHERE request_no = #{requestNo}
+       AND patient_id = #{patientId}
+  </select>
+
+  <select id="lockSchedule" resultType="map">
+    SELECT *
+      FROM doctor_schedule
+     WHERE id = #{scheduleId}
+       FOR UPDATE
+  </select>
+
+  <select id="lockSlot" resultType="map">
+    SELECT *
+      FROM schedule_slot
+     WHERE id = #{slotId}
+       AND schedule_id = #{scheduleId}
+       FOR UPDATE
+  </select>
+
+  <select id="countDoctorAvailable" resultType="long">
+    SELECT COUNT(*)
+      FROM doctor
+     WHERE id = #{doctorId}
+       AND status = 1
+       AND deleted = 0
+  </select>
+
+  <select id="countPatientActiveAppointments" resultType="long">
+    SELECT COUNT(*)
+      FROM appointment
+     WHERE patient_id = #{patientId}
+       AND schedule_id = #{scheduleId}
+       AND status IN (1, 2, 3, 4)
+  </select>
+
+  <select id="nextQueueNo" resultType="java.lang.Integer">
+    SELECT COALESCE(MAX(queue_no), 0) + 1
+      FROM appointment
+     WHERE schedule_id = #{scheduleId}
+       FOR UPDATE
+  </select>
+
+  <update id="reserveSlot">
+    UPDATE schedule_slot
+       SET status = 1
+     WHERE id = #{slotId}
+       AND status = 0
+  </update>
+
+  <update id="releaseSlot">
+    UPDATE schedule_slot
+       SET status = 0
+     WHERE id = #{slotId}
+       AND status = 1
+  </update>
+
+  <update id="incrementBookedCount">
+    UPDATE doctor_schedule
+       SET booked_count = booked_count + 1
+     WHERE id = #{scheduleId}
+       AND booked_count &lt; total_count
+  </update>
+
+  <update id="decrementBookedCount">
+    UPDATE doctor_schedule
+       SET booked_count = GREATEST(booked_count - 1, 0)
+     WHERE id = #{scheduleId}
+  </update>
+
+  <insert id="insertIdempotency">
+    INSERT INTO appointment_idempotency(request_no, patient_id, appointment_id)
+    VALUES (#{requestNo}, #{patientId}, #{appointmentId})
+  </insert>
+
+  <insert id="insertSuccessfulPayment">
+    INSERT INTO payment_record(
+      payment_no, appointment_id, patient_id, amount, payment_method,
+      status, third_party_no, paid_at
+    )
+    VALUES (
+      #{paymentNo}, #{appointmentId}, #{patientId}, #{fee}, 1,
+      2, CONCAT('MOCK-', #{paymentNo}), CURRENT_TIMESTAMP
+    )
+  </insert>
+
+  <insert id="insertNotification">
+    INSERT INTO system_notification(user_id, title, content, notification_type)
+    VALUES (#{userId}, #{title}, #{content}, #{notificationType})
+  </insert>
+
+  <select id="selectRecipientPhoneForUser" resultType="string">
+    SELECT phone
+      FROM patient
+     WHERE user_id = #{userId}
+    UNION ALL
+    SELECT NULL
+      FROM doctor
+     WHERE user_id = #{userId}
+     LIMIT 1
+  </select>
+
+  <insert id="insertOutbox">
+    INSERT INTO notification_outbox(user_id, channel, recipient, subject, content, status)
+    VALUES (#{userId}, #{channel}, #{recipient}, #{subject}, #{content}, 0)
+  </insert>
+
+  <select id="selectDoctorUserId" resultType="long">
+    SELECT user_id
+      FROM doctor
+     WHERE id = #{doctorId}
+  </select>
+
+  <select id="selectDetail" resultType="map">
+    SELECT a.*,
+           d.real_name AS doctor_name,
+           dp.name AS department_name,
+           p.real_name AS patient_name
+      FROM appointment a
+      JOIN doctor d ON d.id = a.doctor_id
+      JOIN department dp ON dp.id = a.department_id
+      JOIN patient p ON p.id = a.patient_id
+     WHERE a.id = #{appointmentId}
+  </select>
+
+  <select id="lockAppointment" resultType="map">
+    SELECT *
+      FROM appointment
+     WHERE id = #{id}
+       FOR UPDATE
+  </select>
+
+  <select id="lockPatientAppointment" resultType="map">
+    SELECT *
+      FROM appointment
+     WHERE id = #{id}
+       AND patient_id = #{patientId}
+       FOR UPDATE
+  </select>
+
+  <select id="selectSlotStartTime" resultType="java.sql.Time">
+    SELECT start_time
+      FROM schedule_slot
+     WHERE id = #{slotId}
+  </select>
+
+  <select id="selectCancelCutoffMinutes" resultType="java.lang.Integer">
+    SELECT CAST(config_value AS UNSIGNED)
+      FROM system_config
+     WHERE config_key = 'appointment.cancel.cutoff.minutes'
+  </select>
+
+  <update id="cancelAppointment">
+    UPDATE appointment
+       SET status = 6,
+           cancel_reason = #{reason},
+           cancelled_at = CURRENT_TIMESTAMP
+     WHERE id = #{id}
+  </update>
+
+  <update id="refundSuccessfulPayment">
+    UPDATE payment_record
+       SET status = 5,
+           refunded_at = CURRENT_TIMESTAMP
+     WHERE appointment_id = #{appointmentId}
+       AND status = 2
+  </update>
+
+  <update id="checkIn">
+    UPDATE appointment
+       SET status = 3
+     WHERE id = #{appointmentId}
+  </update>
+
+  <select id="countVisit" resultType="long">
+    SELECT COUNT(*)
+      FROM medical_visit
+     WHERE appointment_id = #{appointmentId}
+  </select>
+
+  <insert id="insertVisit">
+    INSERT INTO medical_visit(
+      appointment_id, patient_id, doctor_id, visit_no, status, check_in_at
+    )
+    VALUES (
+      #{appointmentId}, #{patientId}, #{doctorId}, #{visitNo}, 1, CURRENT_TIMESTAMP
+    )
+  </insert>
+
+  <select id="selectPatientAppointments" resultType="map">
+    SELECT a.*,
+           d.real_name AS doctor_name,
+           dp.name AS department_name
+      FROM appointment a
+      JOIN doctor d ON d.id = a.doctor_id
+      JOIN department dp ON dp.id = a.department_id
+     WHERE a.patient_id = #{patientId}
+     ORDER BY a.appointment_date DESC, a.id DESC
+  </select>
+
+  <select id="selectAllForAdmin" resultType="map">
+    SELECT a.*,
+           p.real_name AS patient_name,
+           d.real_name AS doctor_name,
+           dp.name AS department_name
+      FROM appointment a
+      JOIN patient p ON p.id = a.patient_id
+      JOIN doctor d ON d.id = a.doctor_id
+      JOIN department dp ON dp.id = a.department_id
+     ORDER BY a.appointment_date DESC, a.id DESC
+  </select>
+
+  <select id="selectAdminPage" resultType="map">
+    SELECT a.*,
+           p.real_name AS patient_name,
+           d.real_name AS doctor_name,
+           dp.name AS department_name
+      FROM appointment a
+      JOIN patient p ON p.id = a.patient_id
+      JOIN doctor d ON d.id = a.doctor_id
+      JOIN department dp ON dp.id = a.department_id
+    <if test="status != null">
+     WHERE a.status = #{status}
+    </if>
+     ORDER BY a.appointment_date DESC, a.id DESC
+     LIMIT #{size} OFFSET #{offset}
+  </select>
+
+  <select id="countAdminAppointments" resultType="long">
+    SELECT COUNT(*)
+      FROM appointment
+    <if test="status != null">
+     WHERE status = #{status}
+    </if>
+  </select>
+
+  <select id="selectAdminDetail" resultType="map">
+    SELECT a.*,
+           p.real_name AS patient_name,
+           p.phone AS patient_phone,
+           d.real_name AS doctor_name,
+           dp.name AS department_name
+      FROM appointment a
+      JOIN patient p ON p.id = a.patient_id
+      JOIN doctor d ON d.id = a.doctor_id
+      JOIN department dp ON dp.id = a.department_id
+     WHERE a.id = #{id}
+  </select>
+
+  <select id="countActiveForPatientAndSchedule" resultType="long">
+    SELECT COUNT(*)
+      FROM appointment
+     WHERE patient_id = #{patientId}
+       AND schedule_id = #{scheduleId}
+       AND id &lt;&gt; #{exceptId}
+       AND status IN (1, 2, 3, 4)
+  </select>
+
+  <update id="updateAppointment">
+    UPDATE appointment
+       SET queue_no = #{queueNo},
+           status = #{status},
+           remark = #{remark}
+     WHERE id = #{id}
+  </update>
+
+  <update id="migrateAppointment">
+    UPDATE appointment
+       SET doctor_id = #{doctorId},
+           department_id = #{departmentId},
+           schedule_id = #{scheduleId},
+           slot_id = #{slotId},
+           appointment_date = #{appointmentDate},
+           period = #{period},
+           fee = #{fee}
+     WHERE id = #{id}
+  </update>
+
+  <update id="refundSuccessfulPaymentWithReason">
+    UPDATE payment_record
+       SET status = 5,
+           refunded_at = COALESCE(refunded_at, CURRENT_TIMESTAMP),
+           refund_reason = COALESCE(#{reason}, refund_reason, '管理员修改预约状态')
+     WHERE appointment_id = #{appointmentId}
+       AND status = 2
+  </update>
+
+  <update id="cancelByAdmin">
+    UPDATE appointment
+       SET status = 7,
+           cancel_reason = #{reason},
+           cancelled_at = CURRENT_TIMESTAMP
+     WHERE id = #{id}
+  </update>
+
+  <update id="expire">
+    UPDATE appointment
+       SET status = 8,
+           cancel_reason = '管理员标记过期'
+     WHERE id = #{id}
+       AND status IN (1, 2)
+  </update>
+
+  <update id="incrementBookedCountUnchecked">
+    UPDATE doctor_schedule
+       SET booked_count = booked_count + 1
+     WHERE id = #{scheduleId}
+  </update>
+
+  <select id="selectDoctorAppointments" resultType="map">
+    SELECT a.*,
+           p.real_name AS patient_name,
+           p.phone AS patient_phone
+      FROM appointment a
+      JOIN patient p ON p.id = a.patient_id
+     WHERE a.doctor_id = #{doctorId}
+     ORDER BY a.appointment_date, a.queue_no, a.id
+  </select>
+
+  <select id="selectRegistrationAppointments" resultType="map">
+    SELECT a.*,
+           p.real_name AS patient_name,
+           d.real_name AS doctor_name
+      FROM appointment a
+      JOIN patient p ON p.id = a.patient_id
+      JOIN doctor d ON d.id = a.doctor_id
+     WHERE a.status IN (1, 2, 3)
+     ORDER BY a.appointment_date, a.queue_no, a.id
+  </select>
+
+  <select id="selectQueue" resultType="map">
+    SELECT a.*,
+           p.real_name AS patient_name,
+           d.real_name AS doctor_name
+      FROM appointment a
+      JOIN patient p ON p.id = a.patient_id
+      JOIN doctor d ON d.id = a.doctor_id
+     WHERE a.status = 3
+     ORDER BY a.queue_no, a.id
+  </select>
+
+  <select id="selectPatientPage" resultType="map">
+    SELECT a.*,
+           d.real_name AS doctor_name,
+           dp.name AS department_name
+      FROM appointment a
+      JOIN doctor d ON d.id = a.doctor_id
+      JOIN department dp ON dp.id = a.department_id
+     WHERE a.patient_id = #{patientId}
+    <if test="status != null">
+       AND a.status = #{status}
+    </if>
+     ORDER BY a.appointment_date DESC, a.id DESC
+     LIMIT #{size} OFFSET #{offset}
+  </select>
+
+  <select id="countPatientAppointments" resultType="long">
+    SELECT COUNT(*)
+      FROM appointment
+     WHERE patient_id = #{patientId}
+    <if test="status != null">
+       AND status = #{status}
+    </if>
+  </select>
+
+  <select id="selectDoctorPage" resultType="map">
+    SELECT a.*,
+           p.real_name AS patient_name,
+           p.phone AS patient_phone
+      FROM appointment a
+      JOIN patient p ON p.id = a.patient_id
+     WHERE a.doctor_id = #{doctorId}
+    <if test="status != null">
+       AND a.status = #{status}
+    </if>
+     ORDER BY a.appointment_date, a.queue_no, a.id
+     LIMIT #{size} OFFSET #{offset}
+  </select>
+
+  <select id="countDoctorAppointments" resultType="long">
+    SELECT COUNT(*)
+      FROM appointment
+     WHERE doctor_id = #{doctorId}
+    <if test="status != null">
+       AND status = #{status}
+    </if>
+  </select>
+
+  <select id="selectRegistrationPage" resultType="map">
+    SELECT a.*,
+           p.real_name AS patient_name,
+           d.real_name AS doctor_name
+      FROM appointment a
+      JOIN patient p ON p.id = a.patient_id
+      JOIN doctor d ON d.id = a.doctor_id
+     WHERE 1 = 1
+    <if test="status != null">
+       AND a.status = #{status}
+    </if>
+     ORDER BY a.appointment_date, a.queue_no, a.id
+     LIMIT #{size} OFFSET #{offset}
+  </select>
+
+  <select id="countRegistrationAppointments" resultType="long">
+    SELECT COUNT(*)
+      FROM appointment
+     WHERE 1 = 1
+    <if test="status != null">
+       AND status = #{status}
+    </if>
+  </select>
+
+  <select id="selectPatientUserId" resultType="long">
+    SELECT user_id
+      FROM patient
+     WHERE id = #{patientId}
+       AND deleted = 0
+  </select>
+</mapper>

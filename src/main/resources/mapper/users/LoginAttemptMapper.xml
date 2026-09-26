@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="io.github.tissyboxc.harmsys.users.mapper.LoginAttemptMapper">
+  <select id="selectLockedUntil" resultType="java.sql.Timestamp">
+    SELECT locked_until
+      FROM login_attempt
+     WHERE username = #{username}
+       AND ip_address = #{ipAddress}
+  </select>
+
+  <insert id="recordFailure">
+    INSERT INTO login_attempt(
+      username, ip_address, fail_count, locked_until, last_attempt_at
+    )
+    VALUES (#{username}, #{ipAddress}, 1, NULL, CURRENT_TIMESTAMP)
+    ON DUPLICATE KEY UPDATE
+      fail_count = fail_count + 1,
+      locked_until = CASE
+        WHEN fail_count + 1 &gt;= 5
+        THEN DATE_ADD(CURRENT_TIMESTAMP, INTERVAL 15 MINUTE)
+        ELSE locked_until
+      END,
+      last_attempt_at = CURRENT_TIMESTAMP
+  </insert>
+
+  <delete id="deleteAttempt">
+    DELETE FROM login_attempt
+     WHERE username = #{username}
+       AND ip_address = #{ipAddress}
+  </delete>
+</mapper>

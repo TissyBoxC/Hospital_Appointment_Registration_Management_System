@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="io.github.tissyboxc.harmsys.clinical.mapper.MedicalAttachmentMapper">
+  <select id="selectDetail" resultType="map">
+    SELECT *
+      FROM medical_attachment
+     WHERE id = #{id}
+  </select>
+
+  <select id="selectByPatient" resultType="map">
+    SELECT id,
+           patient_id,
+           visit_id,
+           uploader_user_id,
+           attachment_type,
+           original_name,
+           content_type,
+           file_size,
+           description,
+           created_at
+      FROM medical_attachment
+     WHERE patient_id = #{patientId}
+    <if test="visitId != null">
+       AND visit_id = #{visitId}
+    </if>
+     ORDER BY created_at DESC
+  </select>
+
+  <select id="countActivePatient" resultType="long">
+    SELECT COUNT(*)
+      FROM patient
+     WHERE id = #{patientId}
+       AND deleted = 0
+  </select>
+</mapper>

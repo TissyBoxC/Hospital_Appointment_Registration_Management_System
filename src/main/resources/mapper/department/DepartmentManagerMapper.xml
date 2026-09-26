@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="io.github.tissyboxc.harmsys.department.mapper.DepartmentManagerMapper">
+  <select id="selectManagedDepartmentIds" resultType="long">
+    SELECT department_id
+      FROM department_manager
+     WHERE user_id = #{userId}
+     ORDER BY department_id
+  </select>
+
+  <select id="selectAllDepartmentIds" resultType="long">
+    SELECT id FROM department WHERE deleted = 0 ORDER BY id
+  </select>
+
+  <select id="selectDepartments" resultType="map">
+    SELECT id, parent_id, name, code, description, location, contact_phone, status
+      FROM department
+     WHERE deleted = 0
+    <if test="departmentIds != null and departmentIds.size() &gt; 0">
+       AND id IN
+       <foreach collection="departmentIds" item="id" open="(" separator="," close=")">
+         #{id}
+       </foreach>
+    </if>
+     ORDER BY sort_no, id
+  </select>
+
+  <select id="selectDoctors" resultType="map">
+    SELECT d.id,
+           d.user_id,
+           d.department_id,
+           dp.name AS department_name,
+           d.doctor_no,
+           d.real_name,
+           d.title,
+           d.specialty,
+           d.introduction,
+           d.avatar_url,
+           d.consultation_fee,
+           d.status,
+           u.username,
+           u.status AS account_status
+      FROM doctor d
+      JOIN department dp ON dp.id = d.department_id
+      JOIN sys_user u ON u.id = d.user_id
+     WHERE d.deleted = 0
+       AND d.department_id IN
+       <foreach collection="departmentIds" item="id" open="(" separator="," close=")">
+         #{id}
+       </foreach>
+    <if test="keyword != null and keyword != ''">
+       AND (
+         d.real_name LIKE CONCAT('%', #{keyword}, '%')
+         OR d.doctor_no LIKE CONCAT('%', #{keyword}, '%')
+         OR d.title LIKE CONCAT('%', #{keyword}, '%')
+         OR d.specialty LIKE CONCAT('%', #{keyword}, '%')
+       )
+    </if>
+     ORDER BY d.status DESC, d.real_name, d.id
+  </select>
+
+  <select id="selectDoctor" resultType="map">
+    SELECT d.id,
+           d.user_id,
+           d.department_id,
+           dp.name AS department_name,
+           d.doctor_no,
+           d.real_name,
+           d.title,
+           d.specialty,
+           d.introduction,
+           d.avatar_url,
+           d.consultation_fee,
+           d.status,
+           u.username,
+           u.status AS account_status
+      FROM doctor d
+      JOIN department dp ON dp.id = d.department_id
+      JOIN sys_user u ON u.id = d.user_id
+     WHERE d.deleted = 0
+       AND d.department_id IN
+       <foreach collection="departmentIds" item="id" open="(" separator="," close=")">
+         #{id}
+       </foreach>
+       AND d.id = #{doctorId}
+  </select>
+
+  <select id="countDoctorInDepartments" resultType="long">
+    SELECT COUNT(*)
+      FROM doctor
+     WHERE deleted = 0
+    <if test="doctorId != null">
+       AND id = #{doctorId}
+    </if>
+       AND department_id IN
+       <foreach collection="departmentIds" item="id" open="(" separator="," close=")">
+         #{id}
+       </foreach>
+  </select>
+
+  <update id="updateDoctor">
+    UPDATE doctor
+       SET real_name = #{request.real_name},
+           title = #{request.title},
+           specialty = #{request.specialty},
+           introduction = #{request.introduction},
+           avatar_url = #{request.avatar_url},
+           consultation_fee = #{request.consultation_fee},
+           status = #{request.status}
+     WHERE id = #{doctorId}
+       AND deleted = 0
+  </update>
+
+  <select id="selectSchedules" resultType="map">
+    SELECT id,
+           doctor_id,
+           department_id,
+           schedule_date,
+           period,
+           start_time,
+           end_time,
+           total_count,
+           booked_count,
+           fee,
+           status,
+           remark
+      FROM doctor_schedule
+     WHERE department_id IN
+       <foreach collection="departmentIds" item="id" open="(" separator="," close=")">
+         #{id}
+       </foreach>
+    <if test="doctorId != null">
+       AND doctor_id = #{doctorId}
+    </if>
+    <if test="scheduleDate != null">
+       AND schedule_date = #{scheduleDate}
+    </if>
+     ORDER BY schedule_date DESC, start_time, id DESC
+  </select>
+
+  <select id="selectSchedule" resultType="map">
+    SELECT id,
+           doctor_id,
+           department_id,
+           schedule_date,
+           period,
+           start_time,
+           end_time,
+           total_count,
+           booked_count,
+           fee,
+           status,
+           remark
+      FROM doctor_schedule
+     WHERE department_id IN
+       <foreach collection="departmentIds" item="id" open="(" separator="," close=")">
+         #{id}
+       </foreach>
+       AND id = #{scheduleId}
+  </select>
+
+  <sql id="patientScope">
+    EXISTS (
+      SELECT 1
+        FROM medical_visit v
+        JOIN appointment a ON a.id = v.appointment_id
+       WHERE v.patient_id = p.id
+         AND a.department_id IN
+         <foreach collection="departmentIds" item="id" open="(" separator="," close=")">
+           #{id}
+         </foreach>
+    )
+  </sql>
+
+  <select id="selectPatients" resultType="map">
+    SELECT DISTINCT p.id,
+           p.user_id,
+           p.real_name,
+           p.gender,
+           p.birthday,
+           p.phone,
+           p.address,
+           p.emergency_contact,
+           p.emergency_phone
+      FROM patient p
+     WHERE p.deleted = 0
+       AND <include refid="patientScope"/>
+    <if test="keyword != null and keyword != ''">
+       AND (
+         p.real_name LIKE CONCAT('%', #{keyword}, '%')
+         OR p.phone LIKE CONCAT('%', #{keyword}, '%')
+         OR CAST(p.id AS CHAR) LIKE CONCAT('%', #{keyword}, '%')
+       )
+    </if>
+     ORDER BY p.real_name, p.id
+  </select>
+
+  <select id="selectPatient" resultType="map">
+    SELECT DISTINCT p.id,
+           p.user_id,
+           p.real_name,
+           p.id_card,
+           p.gender,
+           p.birthday,
+           p.phone,
+           p.address,
+           p.emergency_contact,
+           p.emergency_phone
+      FROM patient p
+     WHERE p.deleted = 0
+       AND p.id = #{patientId}
+       AND <include refid="patientScope"/>
+  </select>
+
+  <select id="selectPatientAppointments" resultType="map">
+    SELECT a.*,
+           d.real_name AS doctor_name,
+           dp.name AS department_name
+      FROM appointment a
+      JOIN doctor d ON d.id = a.doctor_id
+      JOIN department dp ON dp.id = a.department_id
+     WHERE a.patient_id = #{patientId}
+       AND a.department_id IN
+       <foreach collection="departmentIds" item="id" open="(" separator="," close=")">
+         #{id}
+       </foreach>
+     ORDER BY a.appointment_date DESC, a.id DESC
+  </select>
+
+  <select id="selectPatientVisits" resultType="map">
+    SELECT v.*,
+           d.real_name AS doctor_name,
+           dp.name AS department_name
+      FROM medical_visit v
+      JOIN appointment a ON a.id = v.appointment_id
+      JOIN doctor d ON d.id = v.doctor_id
+      JOIN department dp ON dp.id = a.department_id
+     WHERE v.patient_id = #{patientId}
+       AND a.department_id IN
+       <foreach collection="departmentIds" item="id" open="(" separator="," close=")">
+         #{id}
+       </foreach>
+     ORDER BY v.created_at DESC, v.id DESC
+  </select>
+</mapper>

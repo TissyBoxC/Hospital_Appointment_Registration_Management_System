@@ -9,3 +9,9 @@ spring:
       minimum-idle: 2
       connection-timeout: 3000
       initialization-fail-timeout: -1
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: io.github.tissyboxc.harmsys.**.entity
+  configuration:
+    map-underscore-to-camel-case: true

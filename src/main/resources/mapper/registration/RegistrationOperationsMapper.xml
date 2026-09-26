@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="io.github.tissyboxc.harmsys.registration.mapper.RegistrationOperationsMapper">
+  <select id="selectPatients" resultType="map">
+    SELECT id,
+           user_id,
+           real_name,
+           id_card,
+           gender,
+           birthday,
+           phone,
+           address,
+           emergency_contact,
+           emergency_phone
+      FROM patient
+     WHERE deleted = 0
+    <if test="keyword != null and keyword != ''">
+       AND (
+         real_name LIKE CONCAT('%', #{keyword}, '%')
+         OR phone LIKE CONCAT('%', #{keyword}, '%')
+         OR id_card LIKE CONCAT('%', #{keyword}, '%')
+       )
+    </if>
+     ORDER BY id DESC
+     LIMIT 100
+  </select>
+
+  <select id="selectPatient" resultType="map">
+    SELECT id,
+           user_id,
+           real_name,
+           id_card,
+           gender,
+           birthday,
+           phone,
+           address,
+           emergency_contact,
+           emergency_phone
+      FROM patient
+     WHERE id = #{id}
+       AND deleted = 0
+  </select>
+
+  <select id="countActivePatient" resultType="long">
+    SELECT COUNT(*)
+      FROM patient
+     WHERE id = #{id}
+       AND deleted = 0
+  </select>
+
+  <select id="lockSchedule" resultType="map">
+    SELECT *
+      FROM doctor_schedule
+     WHERE id = #{id}
+       FOR UPDATE
+  </select>
+
+  <update id="reserveSlot">
+    UPDATE schedule_slot
+       SET status = 1
+     WHERE id = #{slotId}
+       AND schedule_id = #{scheduleId}
+       AND status = 0
+  </update>
+
+  <select id="selectNextQueueNo" resultType="java.lang.Integer">
+    SELECT COALESCE(MAX(queue_no), 0) + 1
+      FROM appointment
+     WHERE schedule_id = #{scheduleId}
+       FOR UPDATE
+  </select>
+
+  <insert id="insertAppointment">
+    INSERT INTO appointment(
+      appointment_no, patient_id, doctor_id, department_id, schedule_id, slot_id,
+      appointment_date, period, queue_no, fee, status, remark
+    )
+    VALUES (
+      #{appointmentNo}, #{patientId}, #{doctorId}, #{departmentId}, #{scheduleId},
+      #{slotId}, #{appointmentDate}, #{period}, #{queueNo}, #{fee}, 2, #{remark}
+    )
+  </insert>
+
+  <select id="selectAppointmentIdByNo" resultType="long">
+    SELECT id
+      FROM appointment
+     WHERE appointment_no = #{appointmentNo}
+  </select>
+
+  <update id="incrementBookedCount">
+    UPDATE doctor_schedule
+       SET booked_count = booked_count + 1
+     WHERE id = #{scheduleId}
+  </update>
+
+  <insert id="insertSuccessfulPayment">
+    INSERT INTO payment_record(
+      payment_no, appointment_id, patient_id, amount, payment_method,
+      status, third_party_no, paid_at
+    )
+    VALUES (
+      #{paymentNo}, #{appointmentId}, #{patientId}, #{amount}, 1,
+      2, CONCAT('MOCK-', #{paymentNo}), CURRENT_TIMESTAMP
+    )
+  </insert>
+
+  <select id="lockAppointment" resultType="map">
+    SELECT *
+      FROM appointment
+     WHERE id = #{id}
+       FOR UPDATE
+  </select>
+
+  <update id="refundPayment">
+    UPDATE payment_record
+       SET status = 5,
+           refunded_at = CURRENT_TIMESTAMP
+     WHERE appointment_id = #{appointmentId}
+       AND status = 2
+  </update>
+
+  <update id="markRefundedAppointment">
+    UPDATE appointment
+       SET status = 9,
+           cancel_reason = '挂号员退款'
+     WHERE id = #{id}
+       AND status IN (1, 2, 3, 4)
+  </update>
+
+  <update id="releaseSlot">
+    UPDATE schedule_slot
+       SET status = 0
+     WHERE id = #{slotId}
+       AND status = 1
+  </update>
+
+  <update id="decrementBookedCount">
+    UPDATE doctor_schedule
+       SET booked_count = GREATEST(booked_count - 1, 0)
+     WHERE id = #{scheduleId}
+  </update>
+
+  <update id="callNext">
+    UPDATE appointment
+       SET status = 4
+     WHERE id = #{appointmentId}
+       AND status = 3
+  </update>
+
+  <update id="startVisitForAppointment">
+    UPDATE medical_visit
+       SET status = 2,
+           visit_start_at = COALESCE(visit_start_at, CURRENT_TIMESTAMP)
+     WHERE appointment_id = #{appointmentId}
+  </update>
+
+  <update id="markNoShow">
+    UPDATE appointment
+       SET status = 8,
+           cancel_reason = '患者过号'
+     WHERE id = #{appointmentId}
+       AND status = 3
+  </update>
+
+  <update id="requeue">
+    UPDATE appointment
+       SET status = 3
+     WHERE id = #{appointmentId}
+       AND status = 8
+  </update>
+
+  <select id="selectAppointment" resultType="map">
+    SELECT *
+      FROM appointment
+     WHERE id = #{id}
+  </select>
+
+  <select id="selectAppointmentDetail" resultType="map">
+    SELECT a.*,
+           p.real_name AS patient_name,
+           d.real_name AS doctor_name,
+           dp.name AS department_name
+      FROM appointment a
+      JOIN patient p ON p.id = a.patient_id
+      JOIN doctor d ON d.id = a.doctor_id
+      JOIN department dp ON dp.id = a.department_id
+     WHERE a.id = #{id}
+  </select>
+</mapper>

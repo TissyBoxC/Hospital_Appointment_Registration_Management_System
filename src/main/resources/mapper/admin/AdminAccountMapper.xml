@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="io.github.tissyboxc.harmsys.admin.mapper.AdminAccountMapper">
+  <select id="countUsername" resultType="long">
+    SELECT COUNT(*) FROM sys_user WHERE username = #{username}
+  </select>
+
+  <select id="countIdCard" resultType="long">
+    SELECT COUNT(*) FROM patient WHERE id_card = #{idCard}
+  </select>
+
+  <select id="countDoctorNo" resultType="long">
+    SELECT COUNT(*) FROM doctor WHERE doctor_no = #{doctorNo}
+  </select>
+
+  <select id="countEnabledDepartment" resultType="long">
+    SELECT COUNT(*)
+      FROM department
+     WHERE id = #{departmentId}
+       AND status = 1
+       AND deleted = 0
+  </select>
+
+  <insert id="insertUser">
+    INSERT INTO sys_user(username, password_hash, user_type, status, deleted)
+    VALUES (#{username}, #{passwordHash}, #{userType}, 1, 0)
+  </insert>
+
+  <select id="selectLastInsertId" resultType="long">
+    SELECT LAST_INSERT_ID()
+  </select>
+
+  <insert id="insertPatient">
+    INSERT INTO patient(
+      user_id, real_name, id_card, gender, birthday, phone, address,
+      emergency_contact, emergency_phone, deleted
+    )
+    VALUES (
+      #{userId}, #{request.real_name}, #{request.id_card}, #{request.gender},
+      #{request.birthday}, #{request.phone}, #{request.address},
+      #{request.emergency_contact}, #{request.emergency_phone}, 0
+    )
+  </insert>
+
+  <insert id="insertDoctor">
+    INSERT INTO doctor(
+      user_id, department_id, doctor_no, real_name, title, specialty,
+      introduction, avatar_url, consultation_fee, status, deleted
+    )
+    VALUES (
+      #{userId}, #{request.department_id}, #{request.doctor_no}, #{request.real_name},
+      #{request.title}, #{request.specialty}, #{request.introduction},
+      #{request.avatar_url}, #{request.consultation_fee}, 1, 0
+    )
+  </insert>
+
+  <select id="selectRoleId" resultType="long">
+    SELECT id
+      FROM sys_role
+     WHERE role_code = #{roleCode}
+       AND status = 1
+     LIMIT 1
+  </select>
+
+  <insert id="insertUserRole">
+    INSERT INTO sys_user_role(user_id, role_id)
+    VALUES (#{userId}, #{roleId})
+  </insert>
+
+  <delete id="deleteUserRole">
+    DELETE FROM sys_user_role
+     WHERE user_id = #{userId}
+       AND role_id = #{roleId}
+  </delete>
+
+  <select id="countActiveUser" resultType="long">
+    SELECT COUNT(*)
+      FROM sys_user
+     WHERE id = #{userId}
+       AND deleted = 0
+  </select>
+
+  <select id="selectDoctorDepartmentByUserId" resultType="long">
+    SELECT department_id
+      FROM doctor
+     WHERE user_id = #{userId}
+       AND deleted = 0
+     LIMIT 1
+  </select>
+
+  <insert id="insertDepartmentManager">
+    INSERT IGNORE INTO department_manager(department_id, user_id)
+    VALUES (#{departmentId}, #{userId})
+  </insert>
+
+  <delete id="deleteDepartmentManagers">
+    DELETE FROM department_manager WHERE user_id = #{userId}
+  </delete>
+
+  <update id="updateStatus">
+    UPDATE sys_user
+       SET status = #{status}
+     WHERE id = #{userId}
+       AND deleted = 0
+  </update>
+
+  <update id="updatePassword">
+    UPDATE sys_user
+       SET password_hash = #{passwordHash}
+     WHERE id = #{userId}
+       AND deleted = 0
+  </update>
+</mapper>

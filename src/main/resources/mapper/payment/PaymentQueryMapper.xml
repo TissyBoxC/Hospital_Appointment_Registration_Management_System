@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="io.github.tissyboxc.harmsys.payment.mapper.PaymentQueryMapper">
+  <select id="selectPatientPayments" resultType="map">
+    SELECT *
+      FROM payment_record
+     WHERE patient_id = #{patientId}
+     ORDER BY created_at DESC
+     LIMIT #{size} OFFSET #{offset}
+  </select>
+
+  <select id="countPatientPayments" resultType="long">
+    SELECT COUNT(*)
+      FROM payment_record
+     WHERE patient_id = #{patientId}
+  </select>
+
+  <select id="selectAppointmentPayment" resultType="map">
+    SELECT pr.*
+      FROM payment_record pr
+      JOIN appointment a ON a.id = pr.appointment_id
+     WHERE pr.appointment_id = #{appointmentId}
+       AND a.patient_id = #{patientId}
+     ORDER BY pr.id DESC
+     LIMIT 1
+  </select>
+
+  <select id="selectAdminPayments" resultType="map">
+    SELECT pr.*,
+           p.real_name AS patient_name,
+           a.appointment_no
+      FROM payment_record pr
+      JOIN patient p ON p.id = pr.patient_id
+      JOIN appointment a ON a.id = pr.appointment_id
+    <if test="status != null">
+     WHERE pr.status = #{status}
+    </if>
+     ORDER BY pr.created_at DESC
+     LIMIT #{size} OFFSET #{offset}
+  </select>
+
+  <select id="countAdminPayments" resultType="long">
+    SELECT COUNT(*)
+      FROM payment_record
+    <if test="status != null">
+     WHERE status = #{status}
+    </if>
+  </select>
+</mapper>

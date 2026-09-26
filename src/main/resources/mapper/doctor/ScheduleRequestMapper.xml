@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="io.github.tissyboxc.harmsys.doctor.mapper.ScheduleRequestMapper">
+  <sql id="requestResultColumns">
+    r.id,
+    r.doctor_id,
+    d.real_name AS doctor_name,
+    r.department_id,
+    dp.name AS department_name,
+    r.target_schedule_id,
+    r.request_type,
+    r.schedule_date,
+    r.period,
+    r.start_time,
+    r.end_time,
+    r.total_count,
+    r.fee,
+    r.remark,
+    r.status,
+    r.requested_by_user_id,
+    r.reviewed_by_user_id,
+    u.username AS reviewer_name,
+    r.reviewed_at,
+    r.review_remark,
+    r.applied_schedule_id,
+    r.created_at,
+    r.updated_at
+  </sql>
+
+  <select id="countPendingConflicts" resultType="long">
+    SELECT COUNT(*)
+      FROM doctor_schedule_request
+     WHERE doctor_id = #{doctorId}
+       AND status = 0
+       AND schedule_date = #{scheduleDate}
+       AND period = #{period}
+    <if test="targetScheduleId != null">
+       AND (target_schedule_id IS NULL OR target_schedule_id &lt;&gt; #{targetScheduleId})
+    </if>
+  </select>
+
+  <select id="selectMine"
+      resultType="io.github.tissyboxc.harmsys.doctor.dto.ScheduleRequestResult">
+    SELECT <include refid="requestResultColumns"/>
+      FROM doctor_schedule_request r
+      JOIN doctor d ON d.id = r.doctor_id
+      JOIN department dp ON dp.id = r.department_id
+      LEFT JOIN sys_user u ON u.id = r.reviewed_by_user_id
+     WHERE r.doctor_id = #{doctorId}
+    <if test="status != null">
+       AND r.status = #{status}
+    </if>
+     ORDER BY r.created_at DESC
+  </select>
+
+  <select id="selectReviewList"
+      resultType="io.github.tissyboxc.harmsys.doctor.dto.ScheduleRequestResult">
+    SELECT <include refid="requestResultColumns"/>
+      FROM doctor_schedule_request r
+      JOIN doctor d ON d.id = r.doctor_id
+      JOIN department dp ON dp.id = r.department_id
+      LEFT JOIN sys_user u ON u.id = r.reviewed_by_user_id
+     WHERE 1 = 1
+    <if test="!admin">
+       AND (
+         <choose>
+           <when test="departmentManager">
+             EXISTS (
+               SELECT 1
+                 FROM department_manager dm
+                WHERE dm.department_id = r.department_id
+                  AND dm.user_id = #{operatorUserId}
+             )
+           </when>
+           <otherwise>
+             1 = 0
+           </otherwise>
+         </choose>
+         <if test="hasReviewPermission and operatorDepartmentId != null">
+           OR r.department_id = #{operatorDepartmentId}
+         </if>
+       )
+    </if>
+    <if test="departmentId != null">
+       AND r.department_id = #{departmentId}
+    </if>
+    <if test="status != null">
+       AND r.status = #{status}
+    </if>
+     ORDER BY CASE WHEN r.status = 0 THEN 0 ELSE 1 END, r.created_at DESC
+  </select>
+
+  <select id="selectResult"
+      resultType="io.github.tissyboxc.harmsys.doctor.dto.ScheduleRequestResult">
+    SELECT <include refid="requestResultColumns"/>
+      FROM doctor_schedule_request r
+      JOIN doctor d ON d.id = r.doctor_id
+      JOIN department dp ON dp.id = r.department_id
+      LEFT JOIN sys_user u ON u.id = r.reviewed_by_user_id
+     WHERE r.id = #{id}
+  </select>
+
+  <select id="lockRequest" resultType="io.github.tissyboxc.harmsys.doctor.entity.DoctorScheduleRequest">
+    SELECT *
+      FROM doctor_schedule_request
+     WHERE id = #{id}
+       FOR UPDATE
+  </select>
+
+  <select id="lockDoctorRequest"
+      resultType="io.github.tissyboxc.harmsys.doctor.entity.DoctorScheduleRequest">
+    SELECT *
+      FROM doctor_schedule_request
+     WHERE id = #{id}
+       AND doctor_id = #{doctorId}
+       FOR UPDATE
+  </select>
+
+  <select id="countDepartmentManager" resultType="long">
+    SELECT COUNT(*)
+      FROM department_manager
+     WHERE user_id = #{userId}
+       AND department_id = #{departmentId}
+  </select>
+
+  <update id="cancelRequest">
+    UPDATE doctor_schedule_request
+       SET status = 3,
+           review_remark = '医生取消申请'
+     WHERE id = #{id}
+  </update>
+
+  <update id="rejectRequest">
+    UPDATE doctor_schedule_request
+       SET status = 2,
+           reviewed_by_user_id = #{operatorUserId},
+           reviewed_at = CURRENT_TIMESTAMP,
+           review_remark = #{reviewRemark}
+     WHERE id = #{id}
+  </update>
+
+  <update id="approveRequest">
+    UPDATE doctor_schedule_request
+       SET status = 1,
+           reviewed_by_user_id = #{operatorUserId},
+           reviewed_at = CURRENT_TIMESTAMP,
+           review_remark = #{reviewRemark},
+           applied_schedule_id = #{scheduleId}
+     WHERE id = #{id}
+  </update>
+</mapper>

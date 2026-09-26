@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="io.github.tissyboxc.harmsys.users.mapper.UserAccountMapper">
+  <select id="countUsername" resultType="long">
+    SELECT COUNT(*)
+      FROM sys_user
+     WHERE username = #{username}
+  </select>
+
+  <select id="countIdCard" resultType="long">
+    SELECT COUNT(*)
+      FROM patient
+     WHERE id_card = #{idCard}
+  </select>
+
+  <insert id="insertUser">
+    INSERT INTO sys_user(username, password_hash, user_type, status, deleted)
+    VALUES (#{username}, #{passwordHash}, 1, 1, 0)
+  </insert>
+
+  <select id="selectLastInsertId" resultType="long">
+    SELECT LAST_INSERT_ID()
+  </select>
+
+  <insert id="insertPatient">
+    INSERT INTO patient(
+      user_id, real_name, id_card, gender, birthday, phone, address,
+      emergency_contact, emergency_phone, deleted
+    )
+    VALUES (
+      #{userId}, #{realName}, #{idCard}, #{gender}, #{birthday}, #{phone},
+      #{address}, #{emergencyContact}, #{emergencyPhone}, 0
+    )
+  </insert>
+
+  <select id="selectPatientRoleId" resultType="long">
+    SELECT id
+      FROM sys_role
+     WHERE role_code = 'PATIENT'
+       AND status = 1
+     LIMIT 1
+  </select>
+
+  <insert id="insertUserRole">
+    INSERT INTO sys_user_role(user_id, role_id)
+    VALUES (#{userId}, #{roleId})
+  </insert>
+
+  <resultMap id="loginUserRecordMap"
+      type="io.github.tissyboxc.harmsys.users.dto.LoginUserRecord">
+    <constructor>
+      <idArg column="user_id" javaType="java.lang.Long"/>
+      <arg column="username" javaType="java.lang.String"/>
+      <arg column="password_hash" javaType="java.lang.String"/>
+      <arg column="user_type" javaType="java.lang.Integer"/>
+      <arg column="status" javaType="java.lang.Integer"/>
+      <arg column="patient_id" javaType="java.lang.Long"/>
+      <arg column="doctor_id" javaType="java.lang.Long"/>
+      <arg column="department_id" javaType="java.lang.Long"/>
+      <arg column="doctor_status" javaType="java.lang.Integer"/>
+      <arg column="display_name" javaType="java.lang.String"/>
+    </constructor>
+  </resultMap>
+
+  <select id="selectLoginUser" resultMap="loginUserRecordMap">
+    SELECT u.id AS user_id,
+           u.username,
+           u.password_hash,
+           u.user_type,
+           u.status,
+           p.id AS patient_id,
+           d.id AS doctor_id,
+           d.department_id AS department_id,
+           d.status AS doctor_status,
+           COALESCE(p.real_name, d.real_name, u.username) AS display_name
+      FROM sys_user u
+      LEFT JOIN patient p ON p.user_id = u.id AND p.deleted = 0
+      LEFT JOIN doctor d ON d.user_id = u.id AND d.deleted = 0
+     WHERE u.username = #{username}
+       AND u.deleted = 0
+     LIMIT 1
+  </select>
+
+  <select id="selectRoleCodes" resultType="string">
+    SELECT r.role_code
+      FROM sys_user_role ur
+      JOIN sys_role r ON r.id = ur.role_id
+     WHERE ur.user_id = #{userId}
+       AND r.status = 1
+     ORDER BY r.id
+  </select>
+
+  <update id="updateLastLoginTime">
+    UPDATE sys_user
+       SET last_login_at = CURRENT_TIMESTAMP
+     WHERE id = #{userId}
+  </update>
+</mapper>

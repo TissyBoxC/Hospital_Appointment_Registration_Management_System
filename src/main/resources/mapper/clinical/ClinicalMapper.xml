@@ -1,0 +1,342 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="io.github.tissyboxc.harmsys.clinical.mapper.ClinicalMapper">
+  <select id="selectDoctorAppointments" resultType="map">
+    SELECT a.*,
+           p.real_name AS patient_name,
+           p.phone AS patient_phone,
+           dp.name AS department_name
+      FROM appointment a
+      JOIN patient p ON p.id = a.patient_id
+      JOIN department dp ON dp.id = a.department_id
+     WHERE a.doctor_id = #{doctorId}
+     ORDER BY a.appointment_date, a.queue_no, a.id
+  </select>
+
+  <select id="selectDoctorAppointmentsPage" resultType="map">
+    SELECT a.*,
+           p.real_name AS patient_name,
+           p.phone AS patient_phone,
+           dp.name AS department_name
+      FROM appointment a
+      JOIN patient p ON p.id = a.patient_id
+      JOIN department dp ON dp.id = a.department_id
+     WHERE a.doctor_id = #{doctorId}
+    <if test="status != null">
+       AND a.status = #{status}
+    </if>
+     ORDER BY a.appointment_date, a.queue_no, a.id
+     LIMIT #{size} OFFSET #{offset}
+  </select>
+
+  <select id="countDoctorAppointments" resultType="long">
+    SELECT COUNT(*)
+      FROM appointment
+     WHERE doctor_id = #{doctorId}
+    <if test="status != null">
+       AND status = #{status}
+    </if>
+  </select>
+
+  <select id="selectDoctorAppointment" resultType="map">
+    SELECT a.*,
+           p.real_name AS patient_name,
+           p.phone AS patient_phone,
+           p.gender AS patient_gender,
+           p.birthday AS patient_birthday,
+           dp.name AS department_name
+      FROM appointment a
+      JOIN patient p ON p.id = a.patient_id
+      JOIN department dp ON dp.id = a.department_id
+     WHERE a.id = #{appointmentId}
+       AND a.doctor_id = #{doctorId}
+  </select>
+
+  <select id="lockDoctorAppointment" resultType="map">
+    SELECT *
+      FROM appointment
+     WHERE id = #{appointmentId}
+       AND doctor_id = #{doctorId}
+       FOR UPDATE
+  </select>
+
+  <select id="countEnabledDepartment" resultType="long">
+    SELECT COUNT(*)
+      FROM department
+     WHERE id = #{departmentId}
+       AND status = 1
+       AND deleted = 0
+  </select>
+
+  <update id="updatePatientName">
+    UPDATE patient
+       SET real_name = #{realName}
+     WHERE id = #{patientId}
+       AND deleted = 0
+  </update>
+
+  <update id="updateAppointment">
+    UPDATE appointment
+       SET appointment_date = #{appointmentDate},
+           period = #{period},
+           department_id = #{departmentId},
+           queue_no = #{queueNo},
+           status = #{status},
+           remark = #{remark}
+     WHERE id = #{appointmentId}
+  </update>
+
+  <select id="selectVisitByAppointment" resultType="map">
+    SELECT *
+      FROM medical_visit
+     WHERE appointment_id = #{appointmentId}
+  </select>
+
+  <insert id="insertVisit">
+    INSERT INTO medical_visit(
+      appointment_id, patient_id, doctor_id, visit_no, visit_start_at, status
+    )
+    VALUES (
+      #{appointmentId}, #{patientId}, #{doctorId}, #{visitNo}, CURRENT_TIMESTAMP, 2
+    )
+  </insert>
+
+  <update id="startExistingVisit">
+    UPDATE medical_visit
+       SET visit_start_at = COALESCE(visit_start_at, CURRENT_TIMESTAMP),
+           status = 2
+     WHERE id = #{visitId}
+  </update>
+
+  <update id="updateAppointmentStatus">
+    UPDATE appointment
+       SET status = #{status}
+     WHERE id = #{appointmentId}
+  </update>
+
+  <update id="completeVisit">
+    UPDATE medical_visit
+       SET visit_end_at = CURRENT_TIMESTAMP,
+           status = 3
+     WHERE id = #{visitId}
+  </update>
+
+  <select id="selectDoctorVisits" resultType="map">
+    SELECT v.*,
+           p.real_name AS patient_name,
+           a.appointment_no
+      FROM medical_visit v
+      JOIN patient p ON p.id = v.patient_id
+      JOIN appointment a ON a.id = v.appointment_id
+     WHERE v.doctor_id = #{doctorId}
+     ORDER BY v.created_at DESC
+  </select>
+
+  <select id="selectPatientVisits" resultType="map">
+    SELECT v.*,
+           d.real_name AS doctor_name,
+           a.appointment_no
+      FROM medical_visit v
+      JOIN doctor d ON d.id = v.doctor_id
+      JOIN appointment a ON a.id = v.appointment_id
+     WHERE v.patient_id = #{patientId}
+     ORDER BY v.created_at DESC
+  </select>
+
+  <select id="selectVisitDetail" resultType="map">
+    SELECT v.*,
+           p.real_name AS patient_name,
+           d.real_name AS doctor_name,
+           a.appointment_no
+      FROM medical_visit v
+      JOIN patient p ON p.id = v.patient_id
+      JOIN doctor d ON d.id = v.doctor_id
+      JOIN appointment a ON a.id = v.appointment_id
+     WHERE v.id = #{visitId}
+  </select>
+
+  <select id="selectDoctorVisit" resultType="map">
+    SELECT *
+      FROM medical_visit
+     WHERE id = #{visitId}
+       AND doctor_id = #{doctorId}
+  </select>
+
+  <update id="updateVisit">
+    UPDATE medical_visit
+       SET chief_complaint = #{chiefComplaint},
+           present_illness = #{presentIllness},
+           medical_advice = #{medicalAdvice}
+     WHERE id = #{visitId}
+  </update>
+
+  <select id="selectDiagnoses" resultType="map">
+    SELECT *
+      FROM diagnosis_record
+     WHERE visit_id = #{visitId}
+     ORDER BY id
+  </select>
+
+  <insert id="insertDiagnosis" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO diagnosis_record(
+      visit_id, diagnosis_name, diagnosis_code, diagnosis_type, remark
+    )
+    VALUES (
+      #{visitId}, #{diagnosisName}, #{diagnosisCode}, #{diagnosisType}, #{remark}
+    )
+  </insert>
+
+  <select id="selectDiagnosis" resultType="map">
+    SELECT *
+      FROM diagnosis_record
+     WHERE id = #{id}
+  </select>
+
+  <select id="selectDoctorDiagnosis" resultType="map">
+    SELECT dr.*
+      FROM diagnosis_record dr
+      JOIN medical_visit v ON v.id = dr.visit_id
+     WHERE dr.id = #{id}
+       AND v.doctor_id = #{doctorId}
+  </select>
+
+  <update id="updateDiagnosis">
+    UPDATE diagnosis_record
+       SET diagnosis_name = #{diagnosisName},
+           diagnosis_code = #{diagnosisCode},
+           diagnosis_type = #{diagnosisType},
+           remark = #{remark}
+     WHERE id = #{id}
+  </update>
+
+  <delete id="deleteDiagnosis">
+    DELETE FROM diagnosis_record
+     WHERE id = #{id}
+  </delete>
+
+  <insert id="insertPrescription" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO prescription(visit_id, prescription_no, doctor_id, status)
+    VALUES (#{visitId}, #{prescriptionNo}, #{doctorId}, 1)
+  </insert>
+
+  <select id="selectPrescription" resultType="map">
+    SELECT *
+      FROM prescription
+     WHERE id = #{prescriptionId}
+  </select>
+
+  <select id="selectVisitOwner" resultType="map">
+    SELECT patient_id, doctor_id
+      FROM medical_visit
+     WHERE id = #{visitId}
+  </select>
+
+  <select id="selectPrescriptionItems" resultType="map">
+    SELECT *
+      FROM prescription_item
+     WHERE prescription_id = #{prescriptionId}
+     ORDER BY id
+  </select>
+
+  <select id="lockDoctorPrescription" resultType="map">
+    SELECT *
+      FROM prescription
+     WHERE id = #{prescriptionId}
+       AND doctor_id = #{doctorId}
+       FOR UPDATE
+  </select>
+
+  <select id="selectPrescriptionAmount" resultType="java.math.BigDecimal">
+    SELECT COALESCE(SUM(quantity * unit_price), 0)
+      FROM prescription_item
+     WHERE prescription_id = #{prescriptionId}
+  </select>
+
+  <update id="submitPrescription">
+    UPDATE prescription
+       SET status = 2,
+           total_amount = #{amount}
+     WHERE id = #{prescriptionId}
+  </update>
+
+  <update id="resetPrescription">
+    UPDATE prescription
+       SET status = 1,
+           total_amount = 0.00
+     WHERE id = #{prescriptionId}
+       AND status = 1
+  </update>
+
+  <select id="lockPatientPrescription" resultType="map">
+    SELECT p.*, v.patient_id
+      FROM prescription p
+      JOIN medical_visit v ON v.id = p.visit_id
+     WHERE p.id = #{prescriptionId}
+       FOR UPDATE
+  </select>
+
+  <update id="markPrescriptionPaid">
+    UPDATE prescription
+       SET payment_status = 2,
+           payment_no = #{paymentNo},
+           total_amount = #{amount},
+           paid_at = CURRENT_TIMESTAMP
+     WHERE id = #{prescriptionId}
+       AND payment_status = 1
+  </update>
+
+  <insert id="insertPrescriptionItem" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO prescription_item(
+      prescription_id, medicine_id, drug_name, specification, dosage, frequency,
+      days, quantity, unit_price, remark
+    )
+    VALUES (
+      #{prescriptionId}, #{medicineId}, #{drugName}, #{specification}, #{dosage},
+      #{frequency}, #{days}, #{quantity}, #{unitPrice}, #{remark}
+    )
+  </insert>
+
+  <select id="selectPrescriptionItem" resultType="map">
+    SELECT *
+      FROM prescription_item
+     WHERE id = #{id}
+  </select>
+
+  <select id="selectEditablePrescriptionItem" resultType="map">
+    SELECT i.id
+      FROM prescription_item i
+      JOIN prescription p ON p.id = i.prescription_id
+     WHERE i.id = #{itemId}
+       AND p.doctor_id = #{doctorId}
+       AND p.status = 1
+       AND p.payment_status = 1
+  </select>
+
+  <delete id="deletePrescriptionItem">
+    DELETE FROM prescription_item
+     WHERE id = #{itemId}
+  </delete>
+
+  <update id="updatePrescriptionItem">
+    UPDATE prescription_item
+       SET medicine_id = #{medicineId},
+           drug_name = #{drugName},
+           specification = #{specification},
+           dosage = #{dosage},
+           frequency = #{frequency},
+           days = #{days},
+           quantity = #{quantity},
+           unit_price = #{unitPrice},
+           remark = #{remark}
+     WHERE id = #{itemId}
+  </update>
+
+  <select id="selectAvailableMedicine" resultType="map">
+    SELECT id, name, specification, unit_price, stock_quantity
+      FROM medicine
+     WHERE id = #{medicineId}
+       AND status = 1
+  </select>
+</mapper>

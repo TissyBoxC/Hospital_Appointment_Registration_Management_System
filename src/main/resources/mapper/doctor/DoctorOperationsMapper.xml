@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="io.github.tissyboxc.harmsys.doctor.mapper.DoctorOperationsMapper">
+  <select id="selectPatients" resultType="map">
+    SELECT DISTINCT
+           p.id,
+           p.user_id,
+           p.real_name,
+           p.gender,
+           p.birthday,
+           p.phone,
+           p.address
+      FROM patient p
+      JOIN appointment a ON a.patient_id = p.id
+     WHERE a.doctor_id = #{doctorId}
+       AND p.deleted = 0
+    <if test="keyword != null and keyword != ''">
+       AND (p.real_name LIKE CONCAT('%', #{keyword}, '%')
+            OR p.phone LIKE CONCAT('%', #{keyword}, '%'))
+    </if>
+     ORDER BY p.real_name
+  </select>
+
+  <select id="selectPatient" resultType="map">
+    SELECT DISTINCT
+           p.id,
+           p.user_id,
+           p.real_name,
+           p.id_card,
+           p.gender,
+           p.birthday,
+           p.phone,
+           p.address,
+           p.emergency_contact,
+           p.emergency_phone
+      FROM patient p
+      JOIN appointment a ON a.patient_id = p.id
+     WHERE p.id = #{patientId}
+       AND a.doctor_id = #{doctorId}
+       AND p.deleted = 0
+  </select>
+
+  <select id="selectAppointments" resultType="map">
+    SELECT a.*,
+           d.real_name AS doctor_name,
+           dp.name AS department_name
+      FROM appointment a
+      JOIN doctor d ON d.id = a.doctor_id
+      JOIN department dp ON dp.id = a.department_id
+     WHERE a.patient_id = #{patientId}
+       AND a.doctor_id = #{doctorId}
+     ORDER BY a.appointment_date DESC, a.id DESC
+  </select>
+
+  <select id="selectVisits" resultType="map">
+    SELECT *
+      FROM medical_visit
+     WHERE patient_id = #{patientId}
+       AND doctor_id = #{doctorId}
+     ORDER BY created_at DESC
+  </select>
+
+  <select id="selectDiagnoses" resultType="map">
+    SELECT dr.*
+      FROM diagnosis_record dr
+      JOIN medical_visit v ON v.id = dr.visit_id
+     WHERE v.patient_id = #{patientId}
+       AND v.doctor_id = #{doctorId}
+     ORDER BY dr.created_at DESC
+  </select>
+
+  <select id="selectPrescriptions" resultType="map">
+    SELECT p.*
+      FROM prescription p
+      JOIN medical_visit v ON v.id = p.visit_id
+     WHERE v.patient_id = #{patientId}
+       AND v.doctor_id = #{doctorId}
+     ORDER BY p.created_at DESC
+  </select>
+</mapper>
