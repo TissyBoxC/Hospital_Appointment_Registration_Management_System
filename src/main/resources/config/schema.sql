@@ -139,6 +139,46 @@ CREATE TABLE IF NOT EXISTS schedule_slot (
   CONSTRAINT chk_slot_time CHECK (start_time < end_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='排班时间段';
 
+-- 6.1 医生排班申请
+CREATE TABLE IF NOT EXISTS doctor_schedule_request (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
+  doctor_id BIGINT UNSIGNED NOT NULL COMMENT '申请医生ID',
+  department_id BIGINT UNSIGNED NOT NULL COMMENT '申请科室ID',
+  target_schedule_id BIGINT UNSIGNED NULL COMMENT '修改或删除的正式排班ID',
+  request_type TINYINT NOT NULL COMMENT '1新增 2修改 3删除',
+  schedule_date DATE NOT NULL COMMENT '申请出诊日期',
+  period TINYINT NOT NULL COMMENT '1上午 2下午 3晚上',
+  start_time TIME NOT NULL COMMENT '申请开始时间',
+  end_time TIME NOT NULL COMMENT '申请结束时间',
+  total_count INT NOT NULL COMMENT '申请总号源数',
+  fee DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '申请挂号费',
+  remark VARCHAR(255) NULL COMMENT '申请备注',
+  status TINYINT NOT NULL DEFAULT 0 COMMENT '0待审核 1已通过 2已驳回 3已取消',
+  requested_by_user_id BIGINT UNSIGNED NOT NULL COMMENT '提交人账号ID',
+  reviewed_by_user_id BIGINT UNSIGNED NULL COMMENT '审核人账号ID',
+  reviewed_at DATETIME NULL COMMENT '审核时间',
+  review_remark VARCHAR(500) NULL COMMENT '审核意见',
+  applied_schedule_id BIGINT UNSIGNED NULL COMMENT '审批通过后生成或变更的排班ID',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '申请时间',
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (id),
+  KEY idx_schedule_request_review (status, department_id, created_at),
+  KEY idx_schedule_request_doctor (doctor_id, status, created_at),
+  KEY idx_schedule_request_target (target_schedule_id),
+  CONSTRAINT fk_schedule_request_doctor FOREIGN KEY (doctor_id) REFERENCES doctor(id),
+  CONSTRAINT fk_schedule_request_department FOREIGN KEY (department_id) REFERENCES department(id),
+  CONSTRAINT fk_schedule_request_target FOREIGN KEY (target_schedule_id) REFERENCES doctor_schedule(id) ON DELETE SET NULL,
+  CONSTRAINT fk_schedule_request_applied FOREIGN KEY (applied_schedule_id) REFERENCES doctor_schedule(id) ON DELETE SET NULL,
+  CONSTRAINT fk_schedule_request_requester FOREIGN KEY (requested_by_user_id) REFERENCES sys_user(id),
+  CONSTRAINT fk_schedule_request_reviewer FOREIGN KEY (reviewed_by_user_id) REFERENCES sys_user(id),
+  CONSTRAINT chk_schedule_request_type CHECK (request_type IN (1,2,3)),
+  CONSTRAINT chk_schedule_request_period CHECK (period IN (1,2,3)),
+  CONSTRAINT chk_schedule_request_count CHECK (total_count > 0),
+  CONSTRAINT chk_schedule_request_fee CHECK (fee >= 0),
+  CONSTRAINT chk_schedule_request_status CHECK (status IN (0,1,2,3)),
+  CONSTRAINT chk_schedule_request_time CHECK (start_time < end_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='医生排班申请';
+
 -- 7. 预约挂号
 CREATE TABLE IF NOT EXISTS appointment (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
@@ -255,32 +295,69 @@ CREATE TABLE IF NOT EXISTS prescription (
   prescription_no VARCHAR(50) NOT NULL COMMENT '处方编号',
   doctor_id BIGINT UNSIGNED NOT NULL COMMENT '开方医生',
   status TINYINT NOT NULL DEFAULT 1 COMMENT '1草稿 2已提交 3已取药',
+  payment_status TINYINT NOT NULL DEFAULT 1 COMMENT '1待支付 2已支付 3已退款',
+  total_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '处方总金额',
+  payment_no VARCHAR(64) NULL COMMENT '模拟支付单号',
+  paid_at DATETIME NULL COMMENT '处方支付时间',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (id),
   UNIQUE KEY uk_prescription_no (prescription_no),
+  UNIQUE KEY uk_prescription_payment_no (payment_no),
   KEY idx_prescription_visit (visit_id),
+  KEY idx_prescription_payment_status (payment_status, status),
   CONSTRAINT fk_prescription_visit FOREIGN KEY (visit_id) REFERENCES medical_visit(id),
   CONSTRAINT fk_prescription_doctor FOREIGN KEY (doctor_id) REFERENCES doctor(id),
-  CONSTRAINT chk_prescription_status CHECK (status IN (1,2,3))
+  CONSTRAINT chk_prescription_status CHECK (status IN (1,2,3)),
+  CONSTRAINT chk_prescription_payment_status CHECK (payment_status IN (1,2,3)),
+  CONSTRAINT chk_prescription_total_amount CHECK (total_amount >= 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='处方';
 
--- 12. 处方明细
+-- 12. 药品库存主数据
+CREATE TABLE IF NOT EXISTS medicine (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
+  medicine_code VARCHAR(50) NOT NULL COMMENT '药品编码',
+  name VARCHAR(255) NOT NULL COMMENT '药品名称',
+  specification VARCHAR(100) NULL COMMENT '规格',
+  unit VARCHAR(20) NOT NULL DEFAULT '盒' COMMENT '库存单位',
+  unit_price DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '药品单价',
+  stock_quantity DECIMAL(12,2) NOT NULL DEFAULT 0.00 COMMENT '现有库存数量',
+  warning_quantity DECIMAL(12,2) NOT NULL DEFAULT 0.00 COMMENT '库存预警阈值',
+  manufacturer VARCHAR(255) NULL COMMENT '生产厂家',
+  status TINYINT NOT NULL DEFAULT 1 COMMENT '0停用 1启用',
+  remark VARCHAR(500) NULL COMMENT '备注',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_medicine_code (medicine_code),
+  KEY idx_medicine_name (name, status),
+  CONSTRAINT chk_medicine_price CHECK (unit_price >= 0),
+  CONSTRAINT chk_medicine_stock CHECK (stock_quantity >= 0),
+  CONSTRAINT chk_medicine_warning CHECK (warning_quantity >= 0),
+  CONSTRAINT chk_medicine_status CHECK (status IN (0,1))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='药品库存';
+
+-- 12.1 处方明细
 CREATE TABLE IF NOT EXISTS prescription_item (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
   prescription_id BIGINT UNSIGNED NOT NULL COMMENT '处方ID',
+  medicine_id BIGINT UNSIGNED NULL COMMENT '药品ID；历史数据可为空',
   drug_name VARCHAR(255) NOT NULL COMMENT '药品名称',
   specification VARCHAR(100) NULL COMMENT '药品规格',
   dosage VARCHAR(100) NOT NULL COMMENT '单次用量',
   frequency VARCHAR(100) NOT NULL COMMENT '用药频率',
   days INT NOT NULL COMMENT '用药天数',
   quantity DECIMAL(10,2) NOT NULL COMMENT '开具数量',
+  unit_price DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '药品单价',
   remark VARCHAR(255) NULL COMMENT '用药备注',
   PRIMARY KEY (id),
   KEY idx_prescription_item_prescription (prescription_id),
+  KEY idx_prescription_item_medicine (medicine_id),
   CONSTRAINT fk_prescription_item_prescription FOREIGN KEY (prescription_id) REFERENCES prescription(id),
+  CONSTRAINT fk_prescription_item_medicine FOREIGN KEY (medicine_id) REFERENCES medicine(id),
   CONSTRAINT chk_prescription_item_days CHECK (days > 0),
-  CONSTRAINT chk_prescription_item_quantity CHECK (quantity > 0)
+  CONSTRAINT chk_prescription_item_quantity CHECK (quantity > 0),
+  CONSTRAINT chk_prescription_item_unit_price CHECK (unit_price >= 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='处方明细';
 
 -- 13. 角色
@@ -304,6 +381,17 @@ CREATE TABLE IF NOT EXISTS sys_user_role (
   CONSTRAINT fk_user_role_role FOREIGN KEY (role_id) REFERENCES sys_role(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='用户角色关联';
 
+-- 14.1 科室负责人范围
+CREATE TABLE IF NOT EXISTS department_manager (
+  department_id BIGINT UNSIGNED NOT NULL COMMENT '负责科室ID',
+  user_id BIGINT UNSIGNED NOT NULL COMMENT '负责人账号ID',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '任命时间',
+  PRIMARY KEY (department_id, user_id),
+  KEY idx_department_manager_user (user_id),
+  CONSTRAINT fk_department_manager_department FOREIGN KEY (department_id) REFERENCES department(id),
+  CONSTRAINT fk_department_manager_user FOREIGN KEY (user_id) REFERENCES sys_user(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='科室负责人范围';
+
 -- 15. 权限
 CREATE TABLE IF NOT EXISTS sys_permission (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
@@ -324,6 +412,20 @@ CREATE TABLE IF NOT EXISTS sys_role_permission (
   CONSTRAINT fk_role_permission_role FOREIGN KEY (role_id) REFERENCES sys_role(id),
   CONSTRAINT fk_role_permission_permission FOREIGN KEY (permission_id) REFERENCES sys_permission(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='角色权限关联';
+
+-- 16.1 用户直授权限：不与角色绑定，直接授予某个用户
+CREATE TABLE IF NOT EXISTS sys_user_permission (
+  user_id BIGINT UNSIGNED NOT NULL COMMENT '被授权用户ID',
+  permission_id BIGINT UNSIGNED NOT NULL COMMENT '权限ID',
+  granted_by_user_id BIGINT UNSIGNED NULL COMMENT '授权操作人ID',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '授权时间',
+  PRIMARY KEY (user_id, permission_id),
+  KEY idx_user_permission_permission (permission_id),
+  KEY idx_user_permission_grantor (granted_by_user_id),
+  CONSTRAINT fk_user_permission_user FOREIGN KEY (user_id) REFERENCES sys_user(id) ON DELETE CASCADE,
+  CONSTRAINT fk_user_permission_permission FOREIGN KEY (permission_id) REFERENCES sys_permission(id) ON DELETE CASCADE,
+  CONSTRAINT fk_user_permission_grantor FOREIGN KEY (granted_by_user_id) REFERENCES sys_user(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='用户直授权限';
 
 -- 17. 操作日志
 CREATE TABLE IF NOT EXISTS operation_log (
@@ -356,23 +458,32 @@ INSERT INTO sys_permission (permission_code, permission_name, type) VALUES
 ('DOCTOR_MANAGE', '医生资料管理', 3),
 ('PATIENT_MANAGE', '患者资料管理', 3),
 ('SCHEDULE_SELF_MANAGE', '本人排班管理', 3),
-('SCHEDULE_ALL_MANAGE', '全部排班管理', 3)
+('SCHEDULE_ALL_MANAGE', '全部排班管理', 3),
+('SCHEDULE_REQUEST_REVIEW', '排班申请审核', 3)
 ON DUPLICATE KEY UPDATE permission_name = VALUES(permission_name), type = VALUES(type);
 
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r CROSS JOIN sys_permission p
 WHERE r.role_code = 'ADMIN'
-  AND p.permission_code IN ('DEPARTMENT_MANAGE','DOCTOR_MANAGE','PATIENT_MANAGE','SCHEDULE_SELF_MANAGE','SCHEDULE_ALL_MANAGE');
+  AND p.permission_code IN ('DEPARTMENT_MANAGE','DOCTOR_MANAGE','PATIENT_MANAGE','SCHEDULE_SELF_MANAGE','SCHEDULE_ALL_MANAGE','SCHEDULE_REQUEST_REVIEW');
 
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r CROSS JOIN sys_permission p
 WHERE r.role_code = 'DEPARTMENT_MANAGER'
-  AND p.permission_code = 'DEPARTMENT_MANAGE';
+  AND p.permission_code IN ('DEPARTMENT_MANAGE','SCHEDULE_REQUEST_REVIEW');
 
 INSERT IGNORE INTO sys_role_permission (role_id, permission_id)
 SELECT r.id, p.id FROM sys_role r CROSS JOIN sys_permission p
 WHERE r.role_code = 'DOCTOR'
   AND p.permission_code = 'SCHEDULE_SELF_MANAGE';
+
+-- 兼容旧数据：医生账号已具备科室负责人角色时，默认负责其所属科室。
+INSERT IGNORE INTO department_manager(department_id, user_id)
+SELECT d.department_id, d.user_id
+FROM doctor d
+JOIN sys_user_role ur ON ur.user_id = d.user_id
+JOIN sys_role r ON r.id = ur.role_id AND r.role_code = 'DEPARTMENT_MANAGER' AND r.status = 1
+WHERE d.deleted = 0;
 
 -- 18. 预约幂等请求记录：防止客户端重试导致重复预约
 CREATE TABLE IF NOT EXISTS appointment_idempotency (
@@ -513,4 +624,98 @@ INSERT INTO database_schema_version(version, description) VALUES (3, '活跃会�
 ON DUPLICATE KEY UPDATE description = VALUES(description);
 
 INSERT INTO database_schema_version(version, description) VALUES (4, '药房角色、药房处方流转和一致性维护')
+ON DUPLICATE KEY UPDATE description = VALUES(description);
+
+-- 补充处方支付和排班申请相关字段
+SET @ddl = IF(
+  (SELECT COUNT(*) FROM information_schema.columns
+   WHERE table_schema = DATABASE() AND table_name = 'prescription'
+     AND column_name = 'payment_status') = 0,
+  'ALTER TABLE prescription ADD COLUMN payment_status TINYINT NOT NULL DEFAULT 1 COMMENT ''1待支付 2已支付 3已退款'' AFTER status',
+  'SELECT 1');
+PREPARE schema_stmt FROM @ddl;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+
+SET @ddl = IF(
+  (SELECT COUNT(*) FROM information_schema.columns
+   WHERE table_schema = DATABASE() AND table_name = 'prescription'
+     AND column_name = 'total_amount') = 0,
+  'ALTER TABLE prescription ADD COLUMN total_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT ''处方总金额'' AFTER payment_status',
+  'SELECT 1');
+PREPARE schema_stmt FROM @ddl;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+
+SET @ddl = IF(
+  (SELECT COUNT(*) FROM information_schema.columns
+   WHERE table_schema = DATABASE() AND table_name = 'prescription'
+     AND column_name = 'payment_no') = 0,
+  'ALTER TABLE prescription ADD COLUMN payment_no VARCHAR(64) NULL COMMENT ''模拟支付单号'' AFTER total_amount',
+  'SELECT 1');
+PREPARE schema_stmt FROM @ddl;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+
+SET @ddl = IF(
+  (SELECT COUNT(*) FROM information_schema.columns
+   WHERE table_schema = DATABASE() AND table_name = 'prescription'
+     AND column_name = 'paid_at') = 0,
+  'ALTER TABLE prescription ADD COLUMN paid_at DATETIME NULL COMMENT ''处方支付时间'' AFTER payment_no',
+  'SELECT 1');
+PREPARE schema_stmt FROM @ddl;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+
+SET @ddl = IF(
+  (SELECT COUNT(*) FROM information_schema.columns
+   WHERE table_schema = DATABASE() AND table_name = 'prescription_item'
+     AND column_name = 'unit_price') = 0,
+  'ALTER TABLE prescription_item ADD COLUMN unit_price DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT ''药品单价'' AFTER quantity',
+  'SELECT 1');
+PREPARE schema_stmt FROM @ddl;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+
+INSERT INTO database_schema_version(version, description) VALUES (5, '处方支付状态和医生排班申请审批')
+ON DUPLICATE KEY UPDATE description = VALUES(description);
+
+INSERT INTO database_schema_version(version, description) VALUES (6, '用户直授权限')
+ON DUPLICATE KEY UPDATE description = VALUES(description);
+
+-- 27. 药品库存管理与处方选药
+CREATE TABLE IF NOT EXISTS medicine (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
+  medicine_code VARCHAR(50) NOT NULL COMMENT '药品编码',
+  name VARCHAR(255) NOT NULL COMMENT '药品名称',
+  specification VARCHAR(100) NULL COMMENT '规格',
+  unit VARCHAR(20) NOT NULL DEFAULT '盒' COMMENT '库存单位',
+  unit_price DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '药品单价',
+  stock_quantity DECIMAL(12,2) NOT NULL DEFAULT 0.00 COMMENT '现有库存数量',
+  warning_quantity DECIMAL(12,2) NOT NULL DEFAULT 0.00 COMMENT '库存预警阈值',
+  manufacturer VARCHAR(255) NULL COMMENT '生产厂家',
+  status TINYINT NOT NULL DEFAULT 1 COMMENT '0停用 1启用',
+  remark VARCHAR(500) NULL COMMENT '备注',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_medicine_code (medicine_code),
+  KEY idx_medicine_name (name, status),
+  CONSTRAINT chk_medicine_price CHECK (unit_price >= 0),
+  CONSTRAINT chk_medicine_stock CHECK (stock_quantity >= 0),
+  CONSTRAINT chk_medicine_warning CHECK (warning_quantity >= 0),
+  CONSTRAINT chk_medicine_status CHECK (status IN (0,1))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='药品库存';
+
+SET @ddl = IF(
+  (SELECT COUNT(*) FROM information_schema.columns
+   WHERE table_schema = DATABASE() AND table_name = 'prescription_item'
+     AND column_name = 'medicine_id') = 0,
+  'ALTER TABLE prescription_item ADD COLUMN medicine_id BIGINT UNSIGNED NULL COMMENT ''药品ID；历史数据可为空'' AFTER prescription_id, ADD KEY idx_prescription_item_medicine (medicine_id), ADD CONSTRAINT fk_prescription_item_medicine FOREIGN KEY (medicine_id) REFERENCES medicine(id)',
+  'SELECT 1');
+PREPARE schema_stmt FROM @ddl;
+EXECUTE schema_stmt;
+DEALLOCATE PREPARE schema_stmt;
+
+INSERT INTO database_schema_version(version, description) VALUES (7, '药品库存管理与处方选药')
 ON DUPLICATE KEY UPDATE description = VALUES(description);

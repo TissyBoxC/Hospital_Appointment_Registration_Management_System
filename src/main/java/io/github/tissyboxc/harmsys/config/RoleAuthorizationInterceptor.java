@@ -1,0 +1,41 @@
+package io.github.tissyboxc.harmsys.config;
+
+import io.github.tissyboxc.harmsys.security.SessionAuthenticationException;
+import io.github.tissyboxc.harmsys.security.session.AuthenticatedUser;
+import io.github.tissyboxc.harmsys.security.session.SessionAuth;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.web.servlet.HandlerInterceptor;
+
+/**
+ * 验证用户是否属于某个角色
+ */
+public class RoleAuthorizationInterceptor implements HandlerInterceptor {
+
+  private final String requiredRole;
+
+  public RoleAuthorizationInterceptor(String requiredRole) {
+    this.requiredRole = requiredRole;
+  }
+
+  @Override
+  public boolean preHandle(
+      HttpServletRequest request, HttpServletResponse response, Object handler) {
+    AuthenticatedUser user = SessionAuth.require(request);
+
+    if (user.role_codes().stream().anyMatch("ADMIN"::equalsIgnoreCase)) {
+      return true;
+    }
+
+    boolean allowed =
+        user.role_codes().stream().anyMatch(role -> requiredRole.equalsIgnoreCase(role));
+
+    if (!allowed) {
+      throw new SessionAuthenticationException(403, "没有访问该功能的权限");
+    }
+
+    return true;
+  }
+}
+
+

@@ -9,5 +9,6 @@ public record LoginUserRecord(
     Integer status,
     Long patient_id,
     Long doctor_id,
+    Long department_id,
     Integer doctor_status,
     String display_name) {}

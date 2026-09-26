@@ -7,6 +7,7 @@ public record DoctorProfileResult(
     Long id,
     Long user_id,
     Long department_id,
+    String department_name,
     String doctor_no,
     String real_name,
     String title,

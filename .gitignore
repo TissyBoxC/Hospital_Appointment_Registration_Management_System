@@ -30,6 +30,18 @@ replay_pid*
 .idea/
 .learnings/
 build/
-/.idea
-/.gradle
-/build
+out/
+bin/
+*.iml
+*.ipr
+*.iws
+.settings/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Gradle Wrapper is intentionally not used; this project uses local Gradle.
+gradlew
+gradlew.bat
+gradle/wrapper/
